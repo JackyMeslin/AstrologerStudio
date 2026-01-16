@@ -78,6 +78,7 @@ function SubscriptionCard() {
   const plan = data?.plan || 'free'
   const isPaid = plan === 'pro' || plan === 'trial'
   const isLifetime = plan === 'lifetime'
+  const isTrial = plan === 'trial'
 
   // Get badge styling based on plan
   const getBadge = () => {
@@ -87,7 +88,7 @@ function SubscriptionCard() {
       case 'pro':
         return { variant: 'default' as const, label: 'Pro', Icon: Crown }
       case 'trial':
-        return { variant: 'outline' as const, label: 'Trial', Icon: Clock }
+        return { variant: 'outline' as const, label: 'Trial PRO', Icon: Clock }
       default:
         return { variant: 'outline' as const, label: 'Free', Icon: CreditCard }
     }
@@ -105,19 +106,18 @@ function SubscriptionCard() {
           </div>
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-2">
-              <Badge className="h-8 w-24" variant={variant}>
+              <Badge className="h-8" variant={variant}>
                 <Icon className="mr-2 h-4 w-4" />
                 {label}
               </Badge>
-              {/* FIXME: COUNTDOWN DISABLED */}
-              {/*
-              {plan === 'trial' && data?.trialDaysLeft !== null && (
-                <span className="text-sm text-muted-foreground">{data?.trialDaysLeft} days left</span>
+              {isTrial && data?.trialDaysLeft !== null && data?.trialDaysLeft !== undefined && (
+                <span className="text-sm text-muted-foreground">
+                  {data.trialDaysLeft} {data.trialDaysLeft === 1 ? 'day' : 'days'} left
+                </span>
               )}
-              */}
             </div>
-            {/* Show manage button for paid subscriptions */}
-            {isPaid && (
+            {/* Show manage button for paid subscriptions (not trial) */}
+            {plan === 'pro' && (
               <Button variant="outline" size="sm" onClick={handleManageSubscription}>
                 <CreditCard className="mr-2 h-4 w-4" />
                 Manage

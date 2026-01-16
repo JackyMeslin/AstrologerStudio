@@ -581,13 +581,13 @@ export async function POST(request: NextRequest) {
 
     // Create streaming response with debug headers
     const streamResponse = result.toTextStreamResponse()
-    
+
     // Add debug headers with base64-encoded context (to handle newlines)
     // These headers allow the frontend to display what was sent to the AI
     const headers = new Headers(streamResponse.headers)
     headers.set('X-AI-Context', Buffer.from(aiContext).toString('base64'))
     headers.set('X-AI-User-Prompt', Buffer.from(userPrompt).toString('base64'))
-    
+
     return new Response(streamResponse.body, {
       status: streamResponse.status,
       statusText: streamResponse.statusText,

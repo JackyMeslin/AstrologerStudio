@@ -25,10 +25,12 @@ export { isDodoPaymentsEnabled, type SubscriptionPlan, type SubscriptionStatus }
  */
 export async function getSubscriptionStatus(
   userId: string,
-  options: { forceSync?: boolean } = {}
+  options: { forceSync?: boolean } = {},
 ): Promise<SubscriptionStatus> {
   const dpEnabled = isDodoPaymentsEnabled()
-  logger.info(`[Subscription] getSubscriptionStatus called: userId=${userId}, dpEnabled=${dpEnabled}, forceSync=${options.forceSync ?? false}`)
+  logger.info(
+    `[Subscription] getSubscriptionStatus called: userId=${userId}, dpEnabled=${dpEnabled}, forceSync=${options.forceSync ?? false}`,
+  )
 
   // If Dodo Payments module is not installed, everyone has lifetime access
   if (!dpEnabled) {

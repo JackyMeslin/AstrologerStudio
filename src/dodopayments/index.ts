@@ -24,12 +24,7 @@ export {
   setLifetimePlan,
 } from './lib/subscription'
 export type { SubscriptionStatus } from './lib/subscription'
-export {
-  requireSubscription,
-  getSessionWithSubscription,
-  checkSubscription,
-  PaymentRequiredError,
-} from './lib/access'
+export { requireSubscription, getSessionWithSubscription, checkSubscription, PaymentRequiredError } from './lib/access'
 export type { AuthSessionWithSubscription } from './lib/access'
 
 // Re-export components

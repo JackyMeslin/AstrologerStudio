@@ -2,18 +2,18 @@
 /* eslint-disable no-console */
 /**
  * Create User Script
- * 
+ *
  * Creates a regular user account for self-hosted deployments.
- * 
+ *
  * Usage:
  *   bun run scripts/create-user.ts --username <name> --password <pass> [options]
- * 
+ *
  * Options:
  *   --username   Required. The account username
  *   --password   Required. The account password (min 8 characters)
  *   --email      Optional. Account email address
  *   --plan       Optional. Subscription plan: free, trial, pro, lifetime (default: trial)
- * 
+ *
  * Examples:
  *   bun run scripts/create-user.ts --username john --password "Pass1234!"
  *   bun run scripts/create-user.ts --username jane --password "Pass1234!" --plan lifetime
@@ -47,10 +47,7 @@ function loadEnvFileIfPresent(filePath: string): void {
     if (!key || process.env[key] !== undefined) continue
 
     let value = line.slice(equalsIndex + 1).trim()
-    if (
-      (value.startsWith('"') && value.endsWith('"')) ||
-      (value.startsWith("'") && value.endsWith("'"))
-    ) {
+    if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
       value = value.slice(1, -1)
     }
 
@@ -115,7 +112,7 @@ Examples:
 
 function parseArgs(): ParsedArgs {
   const args = process.argv.slice(2)
-  
+
   if (args.length === 0 || args[0] === '--help' || args[0] === '-h') {
     printUsage()
     process.exit(0)
@@ -170,7 +167,7 @@ function parseArgs(): ParsedArgs {
 
 async function main() {
   console.log('👤 Create User Account')
-  console.log('=' .repeat(30))
+  console.log('='.repeat(30))
 
   const args = parseArgs()
   const prisma = await createPrismaClient()
@@ -234,7 +231,6 @@ async function main() {
     }
     console.log('')
     console.log('🔑 You can now log in at /login')
-
   } catch (error: unknown) {
     if (error && typeof error === 'object' && 'code' in error && error.code === 'P2002') {
       console.error(`❌ Error: Username or email already exists`)

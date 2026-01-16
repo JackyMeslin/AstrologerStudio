@@ -9,6 +9,10 @@
 
 [🚀 Try it Live](https://astrologerstudio.com) · [📖 Documentation](./DEVELOPMENT.md) · [🐛 Report Bug](https://github.com/g-battaglia/AstrologerStudio/issues)
 
+<br />
+
+[![Astrologer Studio Dashboard](https://raw.githubusercontent.com/g-battaglia/AstrologerStudio/main/CDN/screenshots/birth-chart.webp)](https://astrologerstudio.com)
+
 </div>
 
 ---
@@ -63,9 +67,21 @@ Get intelligent, context-aware readings powered by:
 
 ## 🖼️ Screenshots
 
-<div align="center">
-<i>Coming soon</i>
-</div>
+### Transits & Bi-Wheels
+
+![Transit Chart](https://raw.githubusercontent.com/g-battaglia/AstrologerStudio/main/CDN/screenshots/transit-chart.webp)
+
+### Interactive Timeline
+
+![Timeline](https://raw.githubusercontent.com/g-battaglia/AstrologerStudio/main/CDN/screenshots/timeline.webp)
+
+### Client Management
+
+![Data Management](https://raw.githubusercontent.com/g-battaglia/AstrologerStudio/main/CDN/screenshots/data.webp)
+
+### Visual Ephemeris
+
+![Ephemeris](https://raw.githubusercontent.com/g-battaglia/AstrologerStudio/main/CDN/screenshots/ephemeris-chart.webp)
 
 ## 💡 Why Open Source?
 
@@ -115,6 +131,23 @@ The easiest way to get started is to use our hosted version at **[astrologerstud
 
 Run your own instance in minutes:
 
+#### Option 1: Docker (Recommended)
+
+```bash
+# Clone the repository
+git clone https://github.com/g-battaglia/AstrologerStudio.git
+cd AstrologerStudio
+
+# Configure environment
+cp .env.example .env
+# Edit .env with your API keys
+
+# Start with Docker
+docker-compose up -d
+```
+
+#### Option 2: Manual Setup
+
 ```bash
 # Clone the repository
 git clone https://github.com/g-battaglia/AstrologerStudio.git
@@ -142,7 +175,11 @@ Open [http://localhost:3000](http://localhost:3000) and log in!
 
 > **Note:** Astrologer Studio requires the [Astrologer API](https://github.com/g-battaglia/Astrologer-API) for astrological calculations. You can self-host the API or use the hosted version via [RapidAPI](https://rapidapi.com/gbattaglia/api/astrologer).
 
-See **[DEVELOPMENT.md](./DEVELOPMENT.md)** for more details.
+📖 **Documentation:**
+
+- [DEVELOPMENT.md](./DEVELOPMENT.md) — Detailed development guide
+- [docs/SELF_HOSTING.md](./docs/SELF_HOSTING.md) — Complete self-hosting instructions
+- [CONTEXT.md](./CONTEXT.md) — Project context for AI assistants
 
 ## 🤝 Contributing
 

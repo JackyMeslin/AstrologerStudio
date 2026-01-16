@@ -3,12 +3,7 @@
 import { z } from 'zod'
 import { prisma } from '@/lib/db/prisma'
 import bcrypt from 'bcryptjs'
-import {
-  createAdminSession,
-  deleteAdminSession,
-  getAdminSession,
-  getClientIp,
-} from '@/lib/security/admin-session'
+import { createAdminSession, deleteAdminSession, getAdminSession, getClientIp } from '@/lib/security/admin-session'
 import { verifyRecaptcha } from '@/lib/security/recaptcha'
 import { withAdminAuth, withSuperAdminAuth } from '@/lib/security/admin-auth'
 
@@ -134,14 +129,7 @@ export async function getDashboardStats(): Promise<ActionResult<DashboardStats>>
     startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay())
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
 
-    const [
-      totalUsers,
-      usersToday,
-      usersThisWeek,
-      usersThisMonth,
-      usersByPlan,
-      aiUsageToday,
-    ] = await Promise.all([
+    const [totalUsers, usersToday, usersThisWeek, usersThisMonth, usersByPlan, aiUsageToday] = await Promise.all([
       prisma.user.count(),
       prisma.user.count({ where: { createdAt: { gte: startOfDay } } }),
       prisma.user.count({ where: { createdAt: { gte: startOfWeek } } }),
@@ -223,7 +211,7 @@ export async function getUsers(
   search?: string,
   planFilter?: string,
   sortBy: 'createdAt' | 'lastLoginAt' = 'createdAt',
-  sortOrder: 'asc' | 'desc' = 'desc'
+  sortOrder: 'asc' | 'desc' = 'desc',
 ): Promise<ActionResult<UsersListResult>> {
   return withAdminAuth(async (session) => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -391,10 +379,7 @@ export async function getUserDetails(userId: string): Promise<ActionResult<UserD
 /**
  * Update user's subscription plan (admin action)
  */
-export async function updateUserPlan(
-  userId: string,
-  newPlan: string
-): Promise<ActionResult> {
+export async function updateUserPlan(userId: string, newPlan: string): Promise<ActionResult> {
   return withAdminAuth(async (session) => {
     const user = await prisma.user.findUnique({ where: { id: userId } })
     if (!user) {
@@ -541,7 +526,7 @@ export async function createAdminUser(
   username: string,
   password: string,
   email: string | null,
-  role: 'admin' | 'superadmin'
+  role: 'admin' | 'superadmin',
 ): Promise<ActionResult<{ id: string }>> {
   return withSuperAdminAuth(async (session) => {
     // Check if username already exists

@@ -3,6 +3,7 @@ import { prisma } from '@/lib/db/prisma'
 import { createSession } from '@/lib/security/session'
 import { isGoogleOAuthEnabled, exchangeCodeForTokens, getGoogleUserInfo } from '@/lib/security/oauth'
 import { logger } from '@/lib/logging/server'
+import { calculateTrialEndDate } from '@/lib/config/trial'
 
 /**
  * GET /api/auth/google/callback
@@ -90,7 +91,10 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
           authProvider: 'google',
           firstName: googleUser.given_name,
           lastName: googleUser.family_name ?? null,
-          subscriptionPlan: 'free', // New users start on free plan
+          // New users start with PRO trial
+          subscriptionPlan: 'trial',
+          trialEndsAt: calculateTrialEndDate(),
+          onboardingCompleted: true, // Skip choose-plan page
           emailVerified: new Date(), // Google already verified the email
           // password is null for OAuth users
         },
@@ -100,6 +104,10 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       // Notify Slack about new user registration
       const { sendNewUserNotification } = await import('@/lib/logging/slack')
       void sendNewUserNotification(username, googleUser.email, 'google')
+
+      // Send email notification to admin
+      const { sendNewUserEmailNotification } = await import('@/lib/mail/mail')
+      void sendNewUserEmailNotification(username, googleUser.email, 'google', 'trial')
     }
 
     // Track login analytics
@@ -117,10 +125,10 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     // Redirect to app using configured APP_URL
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.astrologerstudio.com'
     const redirectResponse = NextResponse.redirect(new URL('/dashboard', appUrl))
-    
+
     // Clear the oauth_state cookie after successful validation
     redirectResponse.cookies.delete('oauth_state')
-    
+
     return redirectResponse
   } catch (err) {
     logger.error('Google OAuth callback error:', err)

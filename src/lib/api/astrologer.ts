@@ -11,8 +11,7 @@ import type {
 import { logger } from '@/lib/logging/server'
 
 const BASE_URL = process.env.ASTROLOGER_API_URL
-const DEFAULT_TIMEOUT = 30000 // 30 seconds
-
+const DEFAULT_TIMEOUT = 15000 // 10 seconds
 
 logger.info(`[AstrologerAPI] Configured API URL: ${BASE_URL || 'Default (RapidAPI)'}`)
 

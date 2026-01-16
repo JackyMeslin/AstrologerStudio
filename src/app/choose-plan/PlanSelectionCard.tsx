@@ -122,7 +122,7 @@ export function PlanSelectionCard({ userId, email }: PlanSelectionCardProps) {
               </div>
               <span className="text-muted-foreground">/month</span>
             </div>
-            <p className="text-sm text-primary font-medium">15-day free trial</p>
+            <p className="text-sm text-primary font-medium">{PRICING_CONFIG.plans.pro.trialDays}-day free trial</p>
           </CardHeader>
 
           <CardContent className="grow">

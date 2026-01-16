@@ -6,6 +6,11 @@
  * Redirects to dashboard if user has already completed onboarding.
  * Handles post-checkout callback to complete onboarding.
  *
+ * NOTE: With the new trial system, new users are automatically assigned
+ * a trial plan during registration. This page is mainly used for:
+ * 1. Post-checkout callbacks from DodoPayments
+ * 2. Users who somehow didn't get trial during registration
+ *
  * @module app/choose-plan/page
  */
 
@@ -14,6 +19,7 @@ import { getSession } from '@/lib/security/session'
 import { prisma } from '@/lib/db/prisma'
 import { PlanSelectionCard } from './PlanSelectionCard'
 import { ChoosePlanHeader } from './ChoosePlanHeader'
+import { calculateTrialEndDate, getTrialDurationDays } from '@/lib/config/trial'
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
@@ -57,7 +63,7 @@ export default async function ChoosePlanPage({ searchParams }: { searchParams: P
         data: {
           onboardingCompleted: true,
           subscriptionPlan: 'trial',
-          trialEndsAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+          trialEndsAt: calculateTrialEndDate(),
           lastSubscriptionSync: new Date(),
         },
       })
@@ -78,6 +84,7 @@ export default async function ChoosePlanPage({ searchParams }: { searchParams: P
     select: {
       onboardingCompleted: true,
       email: true,
+      subscriptionPlan: true,
     },
   })
 
@@ -85,6 +92,19 @@ export default async function ChoosePlanPage({ searchParams }: { searchParams: P
   if (user?.onboardingCompleted) {
     redirect('/dashboard')
   }
+
+  // If user doesn't have onboarding completed but already has a subscription,
+  // they might have been created before the new trial system.
+  // Auto-complete onboarding for trial/pro/lifetime users
+  if (user && ['trial', 'pro', 'lifetime'].includes(user.subscriptionPlan)) {
+    await prisma.user.update({
+      where: { id: session.userId },
+      data: { onboardingCompleted: true },
+    })
+    redirect('/dashboard')
+  }
+
+  const trialDays = getTrialDurationDays()
 
   return (
     <>
@@ -103,7 +123,7 @@ export default async function ChoosePlanPage({ searchParams }: { searchParams: P
           <p className="text-center text-sm text-muted-foreground">
             Free plan includes natal charts for up to 5 subjects.
             <br />
-            Pro plan unlocks all features with a 30-day free trial.
+            Pro plan unlocks all features with a {trialDays}-day free trial.
           </p>
         </div>
       </div>

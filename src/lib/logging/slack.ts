@@ -167,11 +167,7 @@ function sleep(ms: number): Promise<void> {
  * @param args - Additional arguments that were logged
  * @returns Promise that resolves when the message is sent (or fails silently)
  */
-export async function sendSlackNotification(
-  level: LogLevel,
-  message: string,
-  args: unknown[] = []
-): Promise<void> {
+export async function sendSlackNotification(level: LogLevel, message: string, args: unknown[] = []): Promise<void> {
   // Skip if no webhook configured
   if (!WEBHOOK_URL) {
     return
@@ -230,7 +226,7 @@ export async function sendSlackNotification(
 export async function sendNewUserNotification(
   username: string,
   email: string,
-  authMethod: 'email' | 'google'
+  authMethod: 'email' | 'google',
 ): Promise<void> {
   // Skip if no dedicated webhook configured
   if (!NEW_USER_WEBHOOK_URL) {
@@ -244,9 +240,7 @@ export async function sendNewUserNotification(
 
   // Mask email for privacy (show first 2 chars and domain)
   const [localPart, domain] = email.split('@')
-  const maskedEmail = localPart && domain 
-    ? `${localPart.slice(0, 2)}***@${domain}` 
-    : '***@***'
+  const maskedEmail = localPart && domain ? `${localPart.slice(0, 2)}***@${domain}` : '***@***'
 
   const timestamp = new Date().toISOString()
   const authEmoji = authMethod === 'google' ? '🔵' : '📧'

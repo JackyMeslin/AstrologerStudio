@@ -20,7 +20,11 @@
     "db:studio": "bun prisma studio",
     "db:setup": "bun install && bun run db:generate && bun run db:migrate",
     "db:format": "bun prisma format",
-    "user:create": "bun run ./scripts/create-user.ts"
+    "user:create": "bun run ./scripts/create-user.ts",
+    "test": "vitest",
+    "test:ui": "vitest --ui",
+    "test:run": "vitest run",
+    "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
     "@ai-sdk/openai": "^2.0.85",

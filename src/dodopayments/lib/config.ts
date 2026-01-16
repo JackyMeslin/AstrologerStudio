@@ -12,13 +12,7 @@ export type SubscriptionPlan = 'free' | 'trial' | 'pro' | 'lifetime'
 /**
  * Dodo subscription status from API
  */
-export type DodoSubscriptionStatus =
-  | 'active'
-  | 'on_hold'
-  | 'cancelled'
-  | 'expired'
-  | 'pending'
-  | 'failed'
+export type DodoSubscriptionStatus = 'active' | 'on_hold' | 'cancelled' | 'expired' | 'pending' | 'failed'
 
 /**
  * Dodo Payments configuration from environment variables

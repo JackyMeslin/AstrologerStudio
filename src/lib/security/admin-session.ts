@@ -65,9 +65,7 @@ export async function encryptAdminSession(payload: AdminSessionPayload): Promise
 /**
  * Decrypts and verifies an admin JWT session token
  */
-export async function decryptAdminSession(
-  session: string | undefined = ''
-): Promise<AdminSessionPayload | null> {
+export async function decryptAdminSession(session: string | undefined = ''): Promise<AdminSessionPayload | null> {
   try {
     const { payload } = await jwtVerify(session, encodedKey, {
       algorithms: ['HS256'],
@@ -83,11 +81,7 @@ export async function decryptAdminSession(
  */
 export async function getClientIp(): Promise<string> {
   const headersList = await headers()
-  return (
-    headersList.get('x-forwarded-for')?.split(',')[0]?.trim() ||
-    headersList.get('x-real-ip') ||
-    'unknown'
-  )
+  return headersList.get('x-forwarded-for')?.split(',')[0]?.trim() || headersList.get('x-real-ip') || 'unknown'
 }
 
 /**
@@ -107,7 +101,7 @@ export async function getUserAgent(): Promise<string> {
 export async function createAdminSession(
   adminId: string,
   username: string,
-  role: 'admin' | 'superadmin'
+  role: 'admin' | 'superadmin',
 ): Promise<void> {
   const expiresAt = new Date(Date.now() + SESSION_DURATION_MS)
   const ipAddress = await getClientIp()
@@ -207,23 +201,27 @@ export async function deleteAdminSession(): Promise<void> {
     const ipAddress = await getClientIp()
 
     // Revoke the session in database
-    await prisma.adminSession.update({
-      where: { id: payload.sessionId },
-      data: { revokedAt: new Date() },
-    }).catch(() => {
-      // Session might already be deleted, ignore
-    })
+    await prisma.adminSession
+      .update({
+        where: { id: payload.sessionId },
+        data: { revokedAt: new Date() },
+      })
+      .catch(() => {
+        // Session might already be deleted, ignore
+      })
 
     // Log logout action
-    await prisma.adminAuditLog.create({
-      data: {
-        adminId: payload.adminId,
-        action: 'logout',
-        ipAddress,
-      },
-    }).catch(() => {
-      // Best effort logging
-    })
+    await prisma.adminAuditLog
+      .create({
+        data: {
+          adminId: payload.adminId,
+          action: 'logout',
+          ipAddress,
+        },
+      })
+      .catch(() => {
+        // Best effort logging
+      })
   }
 
   cookieStore.delete(ADMIN_COOKIE_NAME)

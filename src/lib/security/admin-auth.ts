@@ -42,9 +42,7 @@ export class AdminForbiddenError extends Error {
  * }
  * ```
  */
-export async function withAdminAuth<T>(
-  fn: (session: AdminSessionPayload) => Promise<T>
-): Promise<T> {
+export async function withAdminAuth<T>(fn: (session: AdminSessionPayload) => Promise<T>): Promise<T> {
   const session = await getAdminSession()
 
   if (!session) {
@@ -62,9 +60,7 @@ export async function withAdminAuth<T>(
  * @throws AdminUnauthorizedError if not authenticated
  * @throws AdminForbiddenError if not a superadmin
  */
-export async function withSuperAdminAuth<T>(
-  fn: (session: AdminSessionPayload) => Promise<T>
-): Promise<T> {
+export async function withSuperAdminAuth<T>(fn: (session: AdminSessionPayload) => Promise<T>): Promise<T> {
   const session = await getAdminSession()
 
   if (!session) {

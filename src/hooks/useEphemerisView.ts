@@ -14,7 +14,6 @@ import {
 } from '../types/ephemeris-view'
 import type { TimeRange } from '@/components/TimeRangeSelector'
 
-
 /**
  * Convert decimal degrees to sexagesimal format
  * @param decimalDegrees - The decimal degree value to convert
@@ -28,12 +27,12 @@ function toSexagesimal(decimalDegrees: number, includeSeconds = true): string {
   const degrees = Math.floor(decimalDegrees)
   const decimalMinutes = (decimalDegrees - degrees) * 60
   const minutes = Math.floor(decimalMinutes)
-  
+
   if (includeSeconds) {
     const seconds = Math.round((decimalMinutes - minutes) * 60)
     return `${degrees}°${String(minutes).padStart(2, '0')}'${String(seconds).padStart(2, '0')}"`
   }
-  
+
   return `${degrees}°${String(minutes).padStart(2, '0')}'`
 }
 

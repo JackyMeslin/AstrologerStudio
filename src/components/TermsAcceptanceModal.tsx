@@ -18,6 +18,8 @@ import { FileText, Shield, Loader2 } from 'lucide-react'
 interface TermsAcceptanceModalProps {
   needsTermsAcceptance: boolean
   needsPrivacyAcceptance: boolean
+  /** If true, wait for trial welcome modal to be dismissed before showing */
+  waitForTrialWelcome?: boolean
 }
 
 /**
@@ -25,14 +27,19 @@ interface TermsAcceptanceModalProps {
  * Shown when user hasn't accepted current versions of legal documents.
  * App is visible but blocked in the background until acceptance.
  */
-export function TermsAcceptanceModal({ needsTermsAcceptance, needsPrivacyAcceptance }: TermsAcceptanceModalProps) {
+export function TermsAcceptanceModal({
+  needsTermsAcceptance,
+  needsPrivacyAcceptance,
+  waitForTrialWelcome = false,
+}: TermsAcceptanceModalProps) {
   const [termsChecked, setTermsChecked] = useState(false)
   const [privacyChecked, setPrivacyChecked] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   // Determine if modal should be open
-  const isOpen = needsTermsAcceptance || needsPrivacyAcceptance
+  // Don't show if we need to wait for trial welcome to be dismissed first
+  const isOpen = (needsTermsAcceptance || needsPrivacyAcceptance) && !waitForTrialWelcome
 
   // Check if all required acceptances are checked
   const canSubmit = (!needsTermsAcceptance || termsChecked) && (!needsPrivacyAcceptance || privacyChecked)

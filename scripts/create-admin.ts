@@ -2,18 +2,18 @@
 /* eslint-disable no-console */
 /**
  * Create Admin Script
- * 
+ *
  * Creates an administrator account for self-hosted deployments.
- * 
+ *
  * Usage:
  *   bun run scripts/create-admin.ts --username <name> --password <pass> [options]
- * 
+ *
  * Options:
  *   --username   Required. The admin username
  *   --password   Required. The admin password (min 8 characters)
  *   --email      Optional. Admin email address
  *   --role       Optional. Admin role: admin or superadmin (default: admin)
- * 
+ *
  * Examples:
  *   bun run scripts/create-admin.ts --username admin --password "AdminPass123!"
  *   bun run scripts/create-admin.ts --username superadmin --password "SuperPass123!" --role superadmin
@@ -47,10 +47,7 @@ function loadEnvFileIfPresent(filePath: string): void {
     if (!key || process.env[key] !== undefined) continue
 
     let value = line.slice(equalsIndex + 1).trim()
-    if (
-      (value.startsWith('"') && value.endsWith('"')) ||
-      (value.startsWith("'") && value.endsWith("'"))
-    ) {
+    if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
       value = value.slice(1, -1)
     }
 
@@ -116,7 +113,7 @@ Examples:
 
 function parseArgs(): ParsedArgs {
   const args = process.argv.slice(2)
-  
+
   if (args.length === 0 || args[0] === '--help' || args[0] === '-h') {
     printUsage()
     process.exit(0)
@@ -166,7 +163,7 @@ function parseArgs(): ParsedArgs {
 
 async function main() {
   console.log('🛡️  Create Admin Account')
-  console.log('=' .repeat(30))
+  console.log('='.repeat(30))
 
   const args = parseArgs()
   const prisma = await createPrismaClient()
@@ -220,7 +217,6 @@ async function main() {
     console.log('   Role:     ' + admin.role)
     console.log('')
     console.log('🔑 You can now log in at /admin/login')
-
   } catch (error: unknown) {
     if (error && typeof error === 'object' && 'code' in error && error.code === 'P2002') {
       console.error(`❌ Error: Username or email already exists`)

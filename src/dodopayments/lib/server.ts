@@ -113,10 +113,7 @@ export interface DodoWebhookPayload {
  * @returns Parsed and verified webhook payload
  * @throws Error if verification fails
  */
-export async function verifyWebhook(
-  rawBody: string,
-  headers: WebhookHeaders
-): Promise<DodoWebhookPayload> {
+export async function verifyWebhook(rawBody: string, headers: WebhookHeaders): Promise<DodoWebhookPayload> {
   const client = getClient()
 
   if (!client) {
@@ -189,9 +186,7 @@ export async function getSubscription(subscriptionId: string): Promise<DodoSubsc
       customerId: subscription.customer.customer_id,
       status,
       plan,
-      currentPeriodEnd: subscription.next_billing_date
-        ? new Date(subscription.next_billing_date)
-        : null,
+      currentPeriodEnd: subscription.next_billing_date ? new Date(subscription.next_billing_date) : null,
       trialEnd: null, // SDK uses trial_period_days instead
     }
   } catch (error) {
@@ -246,7 +241,7 @@ export async function listCustomerSubscriptions(customerId: string): Promise<Dod
  */
 export async function cancelSubscription(
   subscriptionId: string,
-  options: { immediate?: boolean } = {}
+  options: { immediate?: boolean } = {},
 ): Promise<{ success: boolean; error?: string }> {
   const client = getClient()
 
@@ -350,7 +345,7 @@ export async function getActiveSubscriptionByEmail(email: string): Promise<DodoS
  */
 export async function createCheckoutSession(
   productId: string,
-  metadata?: Record<string, string>
+  metadata?: Record<string, string>,
 ): Promise<{ checkoutUrl: string; sessionId: string } | null> {
   const client = getClient()
 
@@ -367,10 +362,12 @@ export async function createCheckoutSession(
           quantity: 1,
         },
       ],
-      customer: metadata?.email ? {
-        email: metadata.email,
-        name: metadata.name || undefined,
-      } : undefined,
+      customer: metadata?.email
+        ? {
+            email: metadata.email,
+            name: metadata.name || undefined,
+          }
+        : undefined,
       metadata: metadata || {},
       return_url: `${process.env.NEXT_PUBLIC_APP_URL || ''}/choose-plan?completed=true`,
     })
@@ -400,10 +397,7 @@ export async function createCheckoutSession(
  * @param sendEmail - If true, sends portal link via email
  * @returns Customer portal URL or null
  */
-export async function getCustomerPortalUrl(
-  customerId: string,
-  sendEmail: boolean = false
-): Promise<string | null> {
+export async function getCustomerPortalUrl(customerId: string, sendEmail: boolean = false): Promise<string | null> {
   const client = getClient()
 
   if (!client) {

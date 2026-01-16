@@ -6,11 +6,12 @@ import { randomBytes, createHash } from 'crypto'
 import { z } from 'zod'
 import { verifyRecaptcha } from '@/lib/security/recaptcha'
 import { logger } from '@/lib/logging/server'
-import { sendAccountVerificationEmail, isEmailConfigured } from '@/lib/mail/mail'
+import { sendAccountVerificationEmail, isEmailConfigured, sendNewUserEmailNotification } from '@/lib/mail/mail'
 import { Prisma } from '@prisma/client'
 import { headers } from 'next/headers'
 import { checkRateLimit, getClientIp, RATE_LIMITS } from '@/lib/security/rate-limit'
 import { LEGAL_VERSIONS } from '@/lib/config/legal'
+import { calculateTrialEndDate } from '@/lib/config/trial'
 
 /**
  * Result type for registration actions
@@ -112,7 +113,10 @@ export async function registerUser(data: {
     // Hash password
     const hashedPassword = await bcrypt.hash(validation.data.password, 12)
 
-    // Create user (not verified yet) with terms acceptance
+    // Calculate trial end date for new users
+    const trialEndsAt = calculateTrialEndDate()
+
+    // Create user with trial subscription (not verified yet) with terms acceptance
     const now = new Date()
     const user = await prisma.user.create({
       data: {
@@ -120,7 +124,10 @@ export async function registerUser(data: {
         email: validation.data.email,
         password: hashedPassword,
         authProvider: 'credentials',
-        subscriptionPlan: 'free',
+        // New users start with PRO trial
+        subscriptionPlan: 'trial',
+        trialEndsAt,
+        onboardingCompleted: true, // Skip choose-plan page, they already have trial
         // Terms acceptance from registration form
         termsAcceptedVersion: LEGAL_VERSIONS.terms,
         termsAcceptedAt: now,
@@ -157,6 +164,9 @@ export async function registerUser(data: {
     // Notify Slack about new user registration
     const { sendNewUserNotification } = await import('@/lib/logging/slack')
     void sendNewUserNotification(validation.data.username, validation.data.email, 'email')
+
+    // Send email notification to admin
+    void sendNewUserEmailNotification(validation.data.username, validation.data.email, 'email', 'trial')
 
     return { success: true }
   } catch (error) {

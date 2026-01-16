@@ -45,7 +45,7 @@ export interface SubscriptionStatus {
  */
 export async function getUserSubscription(
   userId: string,
-  options: { forceSync?: boolean } = {}
+  options: { forceSync?: boolean } = {},
 ): Promise<SubscriptionStatus> {
   logger.info(`[DodoPayments/Subscription] getUserSubscription called: userId=${userId}`)
 
@@ -124,7 +124,7 @@ export async function getUserSubscription(
   }
 
   logger.info(
-    `[DodoPayments/Subscription] User DB data: plan=${user.subscriptionPlan}, customerId=${user.customerId}, subscriptionId=${user.subscriptionId}`
+    `[DodoPayments/Subscription] User DB data: plan=${user.subscriptionPlan}, customerId=${user.customerId}, subscriptionId=${user.subscriptionId}`,
   )
 
   return buildSubscriptionStatus(user, isStale)
@@ -141,7 +141,7 @@ function buildSubscriptionStatus(
     trialEndsAt: Date | null
     subscriptionEndsAt: Date | null
   },
-  isStale: boolean
+  isStale: boolean,
 ): SubscriptionStatus {
   const plan = (user.subscriptionPlan || 'free') as SubscriptionPlan
 
@@ -185,7 +185,7 @@ function buildSubscriptionStatus(
 export async function syncSubscriptionFromDodo(
   userId: string,
   email: string,
-  customerId?: string | null
+  customerId?: string | null,
 ): Promise<boolean> {
   logger.info(`[DodoPayments/Subscription] Syncing subscription for user ${userId}`)
 
@@ -247,7 +247,7 @@ export async function syncSubscriptionFromDodo(
         logger.info(`[DodoPayments/Subscription] No subscription found for user ${userId}, downgraded to free`)
       } else {
         logger.info(
-          `[DodoPayments/Subscription] No subscription found for user ${userId}, keeping plan: ${existingUser?.subscriptionPlan}`
+          `[DodoPayments/Subscription] No subscription found for user ${userId}, keeping plan: ${existingUser?.subscriptionPlan}`,
         )
       }
       return true

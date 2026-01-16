@@ -95,7 +95,7 @@ function toSubjectModel(data: PublicBirthData): SubjectModel {
  */
 export async function getPublicNatalChart(
   birthData: PublicBirthData,
-  theme: 'classic' | 'dark' = 'classic'
+  theme: 'classic' | 'dark' = 'classic',
 ): Promise<ChartResponse> {
   // Rate Limiting
   const headersList = await headers()
@@ -135,9 +135,7 @@ export async function getPublicNatalChart(
  * @param theme - Chart theme ('classic' or 'dark')
  * @returns Chart response with SVG and data
  */
-export async function getPublicNowChart(
-  theme: 'classic' | 'dark' = 'classic'
-): Promise<ChartResponse> {
+export async function getPublicNowChart(theme: 'classic' | 'dark' = 'classic'): Promise<ChartResponse> {
   // Rate Limiting
   const headersList = await headers()
   const clientIp = getClientIp(headersList)

@@ -55,7 +55,6 @@ export async function getUserProfile(): Promise<UserProfileData | null> {
   }).catch(() => null)
 }
 
-
 /**
  * Update current user profile
  */

@@ -115,7 +115,10 @@ function isAdminIpAllowed(clientIp: string): boolean {
   if (!allowedIps) return true
 
   // Parse comma-separated list and filter empty entries
-  const allowList = allowedIps.split(',').map((ip) => ip.trim()).filter(Boolean)
+  const allowList = allowedIps
+    .split(',')
+    .map((ip) => ip.trim())
+    .filter(Boolean)
   if (allowList.length === 0) return true
 
   // Check if client IP matches any allowed IP or CIDR range
@@ -140,9 +143,7 @@ function getClientIpFromRequest(req: NextRequest): string {
   return (
     // x-forwarded-for may contain multiple IPs: "client, proxy1, proxy2"
     // The first one is the original client
-    req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
-    req.headers.get('x-real-ip') ||
-    '127.0.0.1'
+    req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || req.headers.get('x-real-ip') || '127.0.0.1'
   )
 }
 

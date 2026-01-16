@@ -88,12 +88,12 @@ export default function VerifyAccountForm() {
             </div>
             <CardTitle className="text-2xl">Account Verified!</CardTitle>
             <CardDescription>
-              Your account has been successfully verified. Choose your plan to get started.
+              Your account has been successfully verified. You can now log in to start exploring.
             </CardDescription>
           </CardHeader>
           <CardContent className="flex justify-center">
             <Button asChild>
-              <Link href="/login?redirect=/choose-plan">Continue</Link>
+              <Link href="/login">Continue to Login</Link>
             </Button>
           </CardContent>
         </Card>

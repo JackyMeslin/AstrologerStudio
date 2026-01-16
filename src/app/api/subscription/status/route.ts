@@ -3,7 +3,7 @@
  * Subscription Status API Route
  *
  * Falls back to lifetime status if billing is not enabled.
- * 
+ *
  * Query Parameters:
  * - forceSync=true: Forces a sync with billing provider API
  */
