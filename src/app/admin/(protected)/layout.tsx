@@ -18,7 +18,7 @@ export default async function ProtectedAdminLayout({ children }: { children: Rea
   return (
     <div className="min-h-screen bg-slate-900 flex">
       <AdminSidebar role={session.role} />
-      <div className="flex-1 flex flex-col">
+      <div className="flex-1 flex flex-col min-w-0">
         <AdminHeader username={session.username} role={session.role} />
         <main className="flex-1 p-6 overflow-auto">{children}</main>
       </div>

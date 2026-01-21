@@ -30,6 +30,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import {
   Search,
   ChevronLeft,
@@ -207,129 +208,125 @@ export function UsersTable() {
 
       {/* Table */}
       <div className="bg-slate-800/50 border border-slate-700 rounded-xl overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-slate-900/50">
-              <tr>
-                <th className="text-left px-4 py-3 text-sm font-medium text-slate-400">Username</th>
-                <th className="text-left px-4 py-3 text-sm font-medium text-slate-400">Email</th>
-                <th className="text-left px-4 py-3 text-sm font-medium text-slate-400">Plan</th>
-                <th
-                  className="text-left px-4 py-3 text-sm font-medium text-slate-400 cursor-pointer hover:text-white"
-                  onClick={() => {
-                    if (sortBy === 'createdAt') {
-                      setSortOrder(sortOrder === 'desc' ? 'asc' : 'desc')
-                    } else {
-                      setSortBy('createdAt')
-                      setSortOrder('desc')
-                    }
-                  }}
-                >
-                  <span className="flex items-center gap-1">
-                    Created
-                    <ArrowUpDown className={`h-3 w-3 ${sortBy === 'createdAt' ? 'text-blue-400' : ''}`} />
-                  </span>
-                </th>
-                <th
-                  className="text-left px-4 py-3 text-sm font-medium text-slate-400 cursor-pointer hover:text-white"
-                  onClick={() => {
-                    if (sortBy === 'lastLoginAt') {
-                      setSortOrder(sortOrder === 'desc' ? 'asc' : 'desc')
-                    } else {
-                      setSortBy('lastLoginAt')
-                      setSortOrder('desc')
-                    }
-                  }}
-                >
-                  <span className="flex items-center gap-1">
-                    Last Login
-                    <ArrowUpDown className={`h-3 w-3 ${sortBy === 'lastLoginAt' ? 'text-blue-400' : ''}`} />
-                  </span>
-                </th>
-                <th className="text-left px-4 py-3 text-sm font-medium text-slate-400">Logins</th>
-                <th className="text-left px-4 py-3 text-sm font-medium text-slate-400">Subjects</th>
-                <th className="text-left px-4 py-3 text-sm font-medium text-slate-400">Charts</th>
-                <th className="text-right px-4 py-3 text-sm font-medium text-slate-400">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-700/50">
-              {isLoading ? (
-                <tr>
-                  <td colSpan={9} className="px-4 py-8 text-center text-slate-400">
-                    <Loader2 className="h-6 w-6 animate-spin mx-auto" />
-                  </td>
-                </tr>
-              ) : users.length === 0 ? (
-                <tr>
-                  <td colSpan={9} className="px-4 py-8 text-center text-slate-400">
-                    No users found
-                  </td>
-                </tr>
-              ) : (
-                users.map((user) => (
-                  <tr key={user.id} className="hover:bg-slate-700/20">
-                    <td className="px-4 py-3 text-sm text-white font-medium">{user.username}</td>
-                    <td className="px-4 py-3 text-sm text-slate-300">{user.email || '-'}</td>
-                    <td className="px-4 py-3">
-                      <span
-                        className={`inline-flex items-center px-2 py-1 rounded-md text-xs font-medium ${
-                          user.subscriptionPlan === 'pro'
-                            ? 'bg-purple-500/20 text-purple-400'
-                            : user.subscriptionPlan === 'trial'
-                              ? 'bg-blue-500/20 text-blue-400'
-                              : user.subscriptionPlan === 'lifetime'
-                                ? 'bg-amber-500/20 text-amber-400'
-                                : 'bg-slate-500/20 text-slate-400'
-                        }`}
-                      >
-                        {user.subscriptionPlan}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-sm text-slate-400">
-                      {new Date(user.createdAt).toLocaleDateString()}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-slate-400">
-                      {user.lastLoginAt ? formatRelativeTime(new Date(user.lastLoginAt)) : 'Never'}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-slate-300">{user.loginCount}</td>
-                    <td className="px-4 py-3 text-sm text-slate-300">{user.subjectsCount}</td>
-                    <td className="px-4 py-3 text-sm text-slate-300">{user.savedChartsCount}</td>
-                    <td className="px-4 py-3 text-right">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button size="sm" variant="ghost" className="text-slate-400 hover:text-white h-8 w-8 p-0">
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-48">
-                          <DropdownMenuItem onClick={() => handleViewDetails(user.id)}>
-                            <Eye className="h-4 w-4 mr-2" />
-                            View Details
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleQuickEditPlan(user)}>
-                            <Edit className="h-4 w-4 mr-2" />
-                            Change Plan
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            onClick={() => {
-                              setUserToDelete(user)
-                              setIsDeleteOpen(true)
-                            }}
-                            className="text-red-400 focus:text-red-400"
-                          >
-                            <Trash2 className="h-4 w-4 mr-2" />
-                            Delete User
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+        <Table>
+          <TableHeader className="bg-slate-900/50">
+            <TableRow className="hover:bg-transparent border-slate-700/50">
+              <TableHead className="text-slate-400 font-medium">Username</TableHead>
+              <TableHead className="text-slate-400 font-medium">Email</TableHead>
+              <TableHead className="text-slate-400 font-medium">Plan</TableHead>
+              <TableHead
+                className="text-slate-400 font-medium cursor-pointer hover:text-white"
+                onClick={() => {
+                  if (sortBy === 'createdAt') {
+                    setSortOrder(sortOrder === 'desc' ? 'asc' : 'desc')
+                  } else {
+                    setSortBy('createdAt')
+                    setSortOrder('desc')
+                  }
+                }}
+              >
+                <span className="flex items-center gap-1">
+                  Created
+                  <ArrowUpDown className={`h-3 w-3 ${sortBy === 'createdAt' ? 'text-blue-400' : ''}`} />
+                </span>
+              </TableHead>
+              <TableHead
+                className="text-slate-400 font-medium cursor-pointer hover:text-white"
+                onClick={() => {
+                  if (sortBy === 'lastLoginAt') {
+                    setSortOrder(sortOrder === 'desc' ? 'asc' : 'desc')
+                  } else {
+                    setSortBy('lastLoginAt')
+                    setSortOrder('desc')
+                  }
+                }}
+              >
+                <span className="flex items-center gap-1">
+                  Last Login
+                  <ArrowUpDown className={`h-3 w-3 ${sortBy === 'lastLoginAt' ? 'text-blue-400' : ''}`} />
+                </span>
+              </TableHead>
+              <TableHead className="text-slate-400 font-medium">Logins</TableHead>
+              <TableHead className="text-slate-400 font-medium">Subjects</TableHead>
+              <TableHead className="text-slate-400 font-medium">Charts</TableHead>
+              <TableHead className="text-right text-slate-400 font-medium">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody className="divide-y divide-slate-700/50">
+            {isLoading ? (
+              <TableRow>
+                <TableCell colSpan={9} className="h-24 text-center text-slate-400">
+                  <Loader2 className="h-6 w-6 animate-spin mx-auto" />
+                </TableCell>
+              </TableRow>
+            ) : users.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={9} className="h-24 text-center text-slate-400">
+                  No users found
+                </TableCell>
+              </TableRow>
+            ) : (
+              users.map((user) => (
+                <TableRow key={user.id} className="hover:bg-slate-700/20 border-slate-700/50">
+                  <TableCell className="text-white font-medium">{user.username}</TableCell>
+                  <TableCell className="text-slate-300">{user.email || '-'}</TableCell>
+                  <TableCell>
+                    <span
+                      className={`inline-flex items-center px-2 py-1 rounded-md text-xs font-medium ${
+                        user.subscriptionPlan === 'pro'
+                          ? 'bg-purple-500/20 text-purple-400'
+                          : user.subscriptionPlan === 'trial'
+                            ? 'bg-blue-500/20 text-blue-400'
+                            : user.subscriptionPlan === 'lifetime'
+                              ? 'bg-amber-500/20 text-amber-400'
+                              : 'bg-slate-500/20 text-slate-400'
+                      }`}
+                    >
+                      {user.subscriptionPlan}
+                    </span>
+                  </TableCell>
+                  <TableCell className="text-slate-400">{new Date(user.createdAt).toLocaleDateString()}</TableCell>
+                  <TableCell className="text-slate-400">
+                    {user.lastLoginAt ? formatRelativeTime(new Date(user.lastLoginAt)) : 'Never'}
+                  </TableCell>
+                  <TableCell className="text-slate-300">{user.loginCount}</TableCell>
+                  <TableCell className="text-slate-300">{user.subjectsCount}</TableCell>
+                  <TableCell className="text-slate-300">{user.savedChartsCount}</TableCell>
+                  <TableCell className="text-right">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button size="sm" variant="ghost" className="text-slate-400 hover:text-white h-8 w-8 p-0">
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-48">
+                        <DropdownMenuItem onClick={() => handleViewDetails(user.id)}>
+                          <Eye className="h-4 w-4 mr-2" />
+                          View Details
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleQuickEditPlan(user)}>
+                          <Edit className="h-4 w-4 mr-2" />
+                          Change Plan
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem
+                          onClick={() => {
+                            setUserToDelete(user)
+                            setIsDeleteOpen(true)
+                          }}
+                          className="text-red-400 focus:text-red-400"
+                        >
+                          <Trash2 className="h-4 w-4 mr-2" />
+                          Delete User
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
 
         {/* Pagination */}
         <div className="flex items-center justify-between px-4 py-3 border-t border-slate-700/50">
