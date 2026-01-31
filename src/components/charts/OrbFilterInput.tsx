@@ -21,8 +21,9 @@ export function OrbFilterInput({ value, onChange, step = 0.5, min = 0.1, max = 1
       )}
       title="Max Orb Filter"
     >
-      <span className="absolute left-2 text-sm text-muted-foreground pointer-events-none">Orb:</span>
+      <label htmlFor="orb-filter-input" className="absolute left-2 text-sm text-muted-foreground pointer-events-none">Orb:</label>
       <Input
+        id="orb-filter-input"
         type="number"
         min={min}
         max={max}

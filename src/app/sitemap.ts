@@ -1,6 +1,7 @@
 import type { MetadataRoute } from 'next'
+import { APP_URL } from '@/lib/config/app'
 
-const baseUrl = 'https://astrologerstudio.com'
+const baseUrl = APP_URL
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const lastModified = new Date()

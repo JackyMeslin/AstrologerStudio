@@ -9,7 +9,7 @@ import {
   CommandList,
 } from '@/components/ui/command'
 import { useSubjects } from '@/hooks/useSubjects'
-import { useDateFormat } from '@/hooks/useDateFormat'
+import { useChartPreferences } from '@/hooks/useChartPreferences'
 import { formatDisplayDate } from '@/lib/utils/date'
 import { Subject } from '@/types/subjects'
 
@@ -28,7 +28,7 @@ export function SubjectSelectorDialog({
 }: SubjectSelectorDialogProps) {
   const { query } = useSubjects()
   const subjects = query.data || []
-  const dateFormat = useDateFormat()
+  const { dateFormat } = useChartPreferences()
   const [mounted, setMounted] = React.useState(false)
 
   React.useEffect(() => {

@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { Check, Sparkles, Loader2 } from 'lucide-react'
 import { dodoPaymentsConfig } from '../lib/config'
+import { clientLogger } from '@/lib/logging/client'
 
 import { PRICING_CONFIG } from '@/lib/config/pricing'
 
@@ -46,7 +47,7 @@ export function PricingCard({ userId, userEmail, userName, isOnboarding: _isOnbo
                 break
               case 'checkout.error':
                 setIsLoading(false)
-                console.error('[DodoPayments] Checkout error:', event.data?.message)
+                clientLogger.error('[DodoPayments] Checkout error:', event.data?.message)
                 break
             }
           },
@@ -54,7 +55,7 @@ export function PricingCard({ userId, userEmail, userName, isOnboarding: _isOnbo
 
         setIsInitialized(true)
       } catch (error) {
-        console.error('[DodoPayments] Failed to initialize checkout:', error)
+        clientLogger.error('[DodoPayments] Failed to initialize checkout:', error)
       }
     }
 
@@ -63,7 +64,7 @@ export function PricingCard({ userId, userEmail, userName, isOnboarding: _isOnbo
 
   const handleCheckout = async () => {
     if (!isInitialized) {
-      console.error('[DodoPayments] Checkout not initialized')
+      clientLogger.error('[DodoPayments] Checkout not initialized')
       return
     }
 
@@ -98,7 +99,7 @@ export function PricingCard({ userId, userEmail, userName, isOnboarding: _isOnbo
       const { DodoPayments } = await import('dodopayments-checkout')
       await DodoPayments.Checkout.open({ checkoutUrl })
     } catch (error) {
-      console.error('[DodoPayments] Failed to start checkout:', error)
+      clientLogger.error('[DodoPayments] Failed to start checkout:', error)
       setIsLoading(false)
     }
   }

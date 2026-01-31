@@ -2,14 +2,12 @@
 
 import { useState } from 'react'
 import { ImageIcon, Eye } from 'lucide-react'
-// import { Upload, Trash2 } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
-// import { toast } from 'sonner'
 import { usePDFBranding, type BrandingType } from '@/stores/pdfBrandingStore'
 
 /**
@@ -21,7 +19,6 @@ import { usePDFBranding, type BrandingType } from '@/stores/pdfBrandingStore'
  * - Custom logo upload
  */
 export function PDFBrandingSettings() {
-  // const fileInputRef = useRef<HTMLInputElement>(null)
   const [previewMode, setPreviewMode] = useState(false)
 
   const {
@@ -31,56 +28,11 @@ export function PDFBrandingSettings() {
     showFooter,
     footerText,
     setBrandingType,
-    // setLogoData,
     setBrandingText,
     setShowFooter,
     setFooterText,
     resetToDefaults,
   } = usePDFBranding()
-
-  /* const handleFileUpload = useCallback(
-    (event: React.ChangeEvent<HTMLInputElement>) => {
-      const file = event.target.files?.[0]
-      if (!file) return
-
-      // Validate file type
-      if (!file.type.startsWith('image/')) {
-        toast.error('Please upload an image file')
-        return
-      }
-
-      // Validate file size (max 500KB for localStorage)
-      if (file.size > 500 * 1024) {
-        toast.error('Image must be smaller than 500KB')
-        return
-      }
-
-      // Read file as base64
-      const reader = new FileReader()
-      reader.onload = (e) => {
-        const result = e.target?.result as string
-        setLogoData(result)
-        setBrandingType('logo')
-        toast.success('Logo uploaded successfully')
-      }
-      reader.onerror = () => {
-        toast.error('Failed to read image file')
-      }
-      reader.readAsDataURL(file)
-    },
-    [setLogoData, setBrandingType],
-  )
-
-  const handleRemoveLogo = () => {
-    setLogoData(null)
-    if (brandingType === 'logo') {
-      setBrandingType('default')
-    }
-    if (fileInputRef.current) {
-      fileInputRef.current.value = ''
-    }
-    toast.success('Logo removed')
-  } */
 
   return (
     <Card>
@@ -113,12 +65,6 @@ export function PDFBrandingSettings() {
                 Brand / Business Name
               </Label>
             </div>
-            {/* <div className="flex items-center space-x-2">
-              <RadioGroupItem value="logo" id="branding-logo" />
-              <Label htmlFor="branding-logo" className="cursor-pointer">
-                Custom Logo
-              </Label>
-            </div> */}
           </RadioGroup>
         </div>
 
@@ -136,38 +82,6 @@ export function PDFBrandingSettings() {
             <p className="text-xs text-muted-foreground">This text will appear in the PDF header.</p>
           </div>
         )}
-
-        {/* Logo Upload */}
-        {/* Logo Upload - DISABLED
-        {brandingType === 'logo' && (
-          <div className="space-y-3">
-            <Label>Logo Image</Label>
-
-            {logoData ? (
-              <div className="flex items-start gap-4">
-                <div className="border rounded-md p-2 bg-muted/30">
-                  <img src={logoData} alt="Logo preview" className="h-12 w-auto max-w-[160px] object-contain" />
-                </div>
-                <Button variant="outline" size="sm" onClick={handleRemoveLogo}>
-                  <Trash2 className="h-4 w-4 mr-1" />
-                  Remove
-                </Button>
-              </div>
-            ) : (
-              <div className="flex items-center gap-2">
-                <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFileUpload} className="hidden" />
-                <Button variant="outline" onClick={() => fileInputRef.current?.click()}>
-                  <Upload className="h-4 w-4 mr-2" />
-                  Upload Logo
-                </Button>
-              </div>
-            )}
-
-            <p className="text-xs text-muted-foreground">
-              Recommended: PNG or SVG with transparent background. Max size: 500KB.
-            </p>
-          </div>
-        )} */}
 
         {/* Footer Settings */}
         <div className="space-y-4 pt-4 border-t">

@@ -5,18 +5,22 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
 import { createSubject } from '@/lib/api/subjects'
-import type { Subject, CreateSubjectInput } from '@/types/subjects'
+import type { Subject, CreateSubjectFormInput, CreateSubjectInput } from '@/types/subjects'
 import { createSubjectSchema } from '@/lib/validation/subject'
 import { useCreateSubjectDialogStore } from '@/stores/createSubjectDialog'
+import { getErrorMessage } from '@/lib/utils/error'
 import { useState } from 'react'
+import { queryKeys } from '@/lib/query-keys'
 
 export function useCreateSubjectDialog() {
   const queryClient = useQueryClient()
   const router = useRouter()
   const { open, setOpen, closeDialog } = useCreateSubjectDialogStore()
   const [error, setError] = useState<string | null>(null)
+  const subjectsQueryKey = queryKeys.subjects.list()
 
-  const form = useForm<CreateSubjectInput>({
+  // Form uses input type for form fields, output type for validated data
+  const form = useForm<CreateSubjectFormInput, unknown, CreateSubjectInput>({
     defaultValues: {
       name: '',
       city: '',
@@ -30,14 +34,13 @@ export function useCreateSubjectDialog() {
       tags: null,
     },
     mode: 'onSubmit',
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    resolver: zodResolver(createSubjectSchema as any),
+    resolver: zodResolver(createSubjectSchema),
   })
 
   const mutation = useMutation({
     mutationFn: (data: CreateSubjectInput) => createSubject(data),
     onSuccess: (created) => {
-      queryClient.setQueryData<Subject[]>(['subjects', { count: 50 }], (old) => {
+      queryClient.setQueryData<Subject[]>(subjectsQueryKey, (old) => {
         if (!old) return [created]
         return [created, ...old]
       })
@@ -47,7 +50,7 @@ export function useCreateSubjectDialog() {
       router.push(`/subjects/${created.id}/natal`)
     },
     onError: (err: unknown) => {
-      setError((err as Error).message)
+      setError(getErrorMessage(err))
     },
   })
 

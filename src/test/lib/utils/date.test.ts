@@ -15,6 +15,7 @@ import {
   isValidPastDate,
   formatDateForInput,
   normalizeTimeValue,
+  parseDateInput,
 } from '@/lib/utils/date'
 
 // ============================================================================
@@ -83,6 +84,41 @@ describe('parseBirthDateTime', () => {
     expect(() => parseBirthDateTime('1990-01-15', '12:60:00')).toThrow('Invalid time values')
     expect(() => parseBirthDateTime('1990-01-15', '12:00:60')).toThrow('Invalid time values')
   })
+
+  // Parameterized tests for valid date/time combinations
+  it.each([
+    [['2000-01-15', '14:30:00'], { year: 2000, month: 0, day: 15, hours: 14, minutes: 30, seconds: 0 }],
+    [['2000-01-15'], { year: 2000, month: 0, day: 15, hours: 0, minutes: 0, seconds: 0 }],
+    [['2000-02-29', '12:00:00'], { year: 2000, month: 1, day: 29, hours: 12, minutes: 0, seconds: 0 }],
+  ] as const)('should correctly parse %j', (input, expected) => {
+    const result = parseBirthDateTime(input[0], input[1])
+
+    expect(result.getUTCFullYear()).toBe(expected.year)
+    expect(result.getUTCMonth()).toBe(expected.month)
+    expect(result.getUTCDate()).toBe(expected.day)
+    expect(result.getUTCHours()).toBe(expected.hours)
+    expect(result.getUTCMinutes()).toBe(expected.minutes)
+    expect(result.getUTCSeconds()).toBe(expected.seconds)
+  })
+
+  // Parameterized tests for invalid date formats
+  it.each([
+    ['15-01-2000', 'Date must be in YYYY-MM-DD format'],
+    ['01/15/2000', 'Date must be in YYYY-MM-DD format'],
+    ['2000/01/15', 'Date must be in YYYY-MM-DD format'],
+  ] as const)('should throw for invalid date format: %s', (invalidDate, expectedError) => {
+    expect(() => parseBirthDateTime(invalidDate)).toThrow(expectedError)
+  })
+
+  // Parameterized tests for invalid time formats
+  it.each([
+    ['25:00:00', 'Invalid time values'],
+    ['24:00:00', 'Invalid time values'],
+    ['12:60:00', 'Invalid time values'],
+    ['12:00:60', 'Invalid time values'],
+  ] as const)('should throw for invalid time: %s', (invalidTime, expectedError) => {
+    expect(() => parseBirthDateTime('2000-01-15', invalidTime)).toThrow(expectedError)
+  })
 })
 
 // ============================================================================
@@ -138,14 +174,21 @@ describe('formatDisplayDate', () => {
     expect(result).toBe('15/12/2025')
   })
 
-  it('should format date in US format', () => {
+  it('should format date in US format (MM/DD/YYYY)', () => {
     const date = new Date('2025-12-15T00:00:00Z')
     const result = formatDisplayDate(date, 'US')
 
     expect(result).toBe('12/15/2025')
   })
 
-  it('should format date in ISO format', () => {
+  it('should format date in EU format (DD/MM/YYYY)', () => {
+    const date = new Date('2025-12-15T00:00:00Z')
+    const result = formatDisplayDate(date, 'EU')
+
+    expect(result).toBe('15/12/2025')
+  })
+
+  it('should format date in ISO format (YYYY-MM-DD)', () => {
     const date = new Date('2025-12-15T00:00:00Z')
     const result = formatDisplayDate(date, 'ISO')
 
@@ -157,6 +200,13 @@ describe('formatDisplayDate', () => {
     const result = formatDisplayDate(date, 'EU', { includeTime: true, timeFormat: '24h' })
 
     expect(result).toBe('15/12/2025 14:30')
+  })
+
+  it('should include 12h time format when specified', () => {
+    const date = new Date('2025-12-15T14:30:00Z')
+    const result = formatDisplayDate(date, 'US', { includeTime: true, timeFormat: '12h' })
+
+    expect(result).toBe('12/15/2025 2:30 PM')
   })
 
   it('should accept string dates', () => {
@@ -171,6 +221,16 @@ describe('formatDisplayDate', () => {
     const result = formatDisplayDate(new Date('invalid'))
 
     expect(result).toBe('—')
+  })
+
+  // Verify format patterns with different dates
+  it.each([
+    ['US', '01/05/2025'],
+    ['EU', '05/01/2025'],
+    ['ISO', '2025-01-05'],
+  ] as const)('should format correctly for %s format', (format, expected) => {
+    const date = new Date('2025-01-05T00:00:00Z')
+    expect(formatDisplayDate(date, format)).toBe(expected)
   })
 })
 
@@ -213,6 +273,14 @@ describe('formatDisplayTime', () => {
     expect(result).toBe('12:00 AM')
   })
 
+  it('should handle midnight correctly in 24-hour format', () => {
+    // Midnight is 00:00 in 24-hour format
+    const date = new Date('2025-12-15T00:00:00Z')
+    const result = formatDisplayTime(date, '24h')
+
+    expect(result).toBe('00:00')
+  })
+
   it('should handle noon correctly in 12-hour format', () => {
     // Noon is 12:00 PM
     const date = new Date('2025-12-15T12:00:00Z')
@@ -225,6 +293,24 @@ describe('formatDisplayTime', () => {
     const result = formatDisplayTime(new Date('invalid'))
 
     expect(result).toBe('—')
+  })
+
+  // Verify 12h format shows AM/PM
+  it('should show AM/PM suffix in 12-hour format', () => {
+    const morningDate = new Date('2025-12-15T08:00:00Z')
+    const eveningDate = new Date('2025-12-15T20:00:00Z')
+
+    expect(formatDisplayTime(morningDate, '12h')).toMatch(/AM$/)
+    expect(formatDisplayTime(eveningDate, '12h')).toMatch(/PM$/)
+  })
+
+  // Verify 24h format uses 0-23 hours range
+  it('should use 0-23 hours range in 24-hour format', () => {
+    const earlyMorning = new Date('2025-12-15T01:00:00Z')
+    const lateEvening = new Date('2025-12-15T23:00:00Z')
+
+    expect(formatDisplayTime(earlyMorning, '24h')).toBe('01:00')
+    expect(formatDisplayTime(lateEvening, '24h')).toBe('23:00')
   })
 })
 
@@ -255,6 +341,36 @@ describe('isValidPastDate', () => {
     const almostNow = new Date(Date.now() + 1000) // 1 second in future
 
     expect(isValidPastDate(almostNow, 2000)).toBe(true) // 2 second tolerance
+  })
+
+  it('should use default tolerance of 2000ms', () => {
+    // Date 1.5 seconds in the future should be valid with default tolerance
+    const slightlyFuture = new Date(Date.now() + 1500)
+
+    expect(isValidPastDate(slightlyFuture)).toBe(true)
+  })
+
+  it('should reject dates beyond tolerance', () => {
+    // Date 3 seconds in the future should be invalid with default 2s tolerance
+    const beyondTolerance = new Date(Date.now() + 3000)
+
+    expect(isValidPastDate(beyondTolerance)).toBe(false)
+  })
+
+  it('should accept custom tolerance parameter', () => {
+    const futureDate = new Date(Date.now() + 5000) // 5 seconds in future
+
+    // Should fail with default tolerance
+    expect(isValidPastDate(futureDate)).toBe(false)
+
+    // Should pass with larger tolerance
+    expect(isValidPastDate(futureDate, 10000)).toBe(true)
+  })
+
+  it('should accept zero tolerance', () => {
+    const futureDate = new Date(Date.now() + 100) // 100ms in future
+
+    expect(isValidPastDate(futureDate, 0)).toBe(false)
   })
 })
 
@@ -308,5 +424,54 @@ describe('normalizeTimeValue', () => {
     const result = normalizeTimeValue('')
 
     expect(result).toBe('')
+  })
+
+  // Parameterized tests for normalizeTimeValue
+  it.each([
+    ['14:30', '14:30:00'],
+    ['9:5', '9:5:00'],
+    ['14:30:45', '14:30:45'],
+    ['00:00', '00:00:00'],
+    ['23:59', '23:59:00'],
+    ['12:00:30', '12:00:30'],
+  ] as const)('should normalize "%s" to "%s"', (input, expected) => {
+    expect(normalizeTimeValue(input)).toBe(expected)
+  })
+
+  it('should handle single-digit hour input', () => {
+    const result = normalizeTimeValue('9:30')
+    expect(result).toBe('9:30:00')
+  })
+
+  it('should handle time with only hour', () => {
+    const result = normalizeTimeValue('14')
+    expect(result).toBe('14:00:00')
+  })
+})
+
+// ============================================================================
+// parseDateInput Tests
+// ============================================================================
+
+describe('parseDateInput', () => {
+  it('should return empty string for empty input', () => {
+    const result = parseDateInput('')
+    expect(result).toBe('')
+  })
+
+  it('should convert valid date to ISO string', () => {
+    const result = parseDateInput('2024-01-15')
+    expect(result).toContain('2024-01-15')
+    expect(result).toContain('T')
+  })
+})
+
+// ============================================================================
+// parseBirthDateTime edge cases Tests
+// ============================================================================
+
+describe('parseBirthDateTime edge cases', () => {
+  it('should throw error for date string with T but no date part', () => {
+    expect(() => parseBirthDateTime('T14:30:00')).toThrow('Invalid date format')
   })
 })

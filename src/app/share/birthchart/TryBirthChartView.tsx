@@ -16,15 +16,18 @@ import { DateTimeLocationSelector } from '@/components/ui/DateTimeLocationSelect
 import { PublicBirthChartForm } from './PublicBirthChartForm'
 import type { LocationFormValues } from '@/components/SubjectLocationFields'
 import { useTheme } from '@/components/ThemeProvider'
-import { getPublicNatalChart, getPublicNowChart, type PublicBirthData } from '@/actions/public-astrology'
+import { getPublicNatalChart, getPublicNowChart } from '@/actions/public-astrology'
+import { publicBirthDataSchema, type PublicBirthData } from '@/types/schemas'
 import { NatalChart } from '@/components/charts/NatalChart'
 import { ChartErrorState } from '@/components/ChartErrorState'
 import { ExportPDFDialog } from '@/components/pdf'
 import { LandingNavbar } from '@/components/landing/LandingNavbar'
 import { Footer } from '@/components/landing/Footer'
-import { useDateFormat, useTimeFormat } from '@/hooks/useDateFormat'
+import { useChartPreferences } from '@/hooks/useChartPreferences'
 import { formatDisplayDate, formatDisplayTime } from '@/lib/utils/date'
 import { toast } from 'sonner'
+import { clientLogger } from '@/lib/logging/client'
+import { STALE_TIME } from '@/lib/config/query'
 
 /**
  * Encode birth data to base64 for shareable URL
@@ -34,11 +37,17 @@ function encodeChartData(data: PublicBirthData): string {
 }
 
 /**
- * Decode birth data from base64 URL parameter
+ * Decode birth data from base64 URL parameter with Zod validation
  */
 function decodeChartData(encoded: string): PublicBirthData | null {
   try {
-    return JSON.parse(atob(encoded))
+    const parsed = JSON.parse(atob(encoded))
+    const result = publicBirthDataSchema.safeParse(parsed)
+    if (!result.success) {
+      clientLogger.warn('Invalid chart data in URL:', result.error.issues)
+      return null
+    }
+    return result.data
   } catch {
     return null
   }
@@ -99,8 +108,7 @@ export function TryBirthChartView() {
   const [showFormDialog, setShowFormDialog] = useState(false)
   const [chartName, setChartName] = useState('Demo Chart')
 
-  const dateFormat = useDateFormat()
-  const timeFormat = useTimeFormat()
+  const { dateFormat, timeFormat } = useChartPreferences()
 
   // Show form dialog on mount if NOT in now mode and no chart data yet
   useEffect(() => {
@@ -173,7 +181,7 @@ export function TryBirthChartView() {
       // Default: show Now Chart
       return getPublicNowChart(chartTheme)
     },
-    staleTime: 1000 * 60 * 5, // 5 minutes - chart data doesn't change
+    staleTime: STALE_TIME.MEDIUM, // 5 minutes - chart data doesn't change
     refetchOnWindowFocus: false,
     placeholderData: (previousData) => previousData,
   })

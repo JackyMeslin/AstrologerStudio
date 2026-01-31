@@ -2,7 +2,7 @@
 
 import { useRef } from 'react'
 import type { UseFormReturn } from 'react-hook-form'
-import type { UpdateSubjectInput } from '@/types/subjects'
+import type { UpdateSubjectFormInput, UpdateSubjectInput } from '@/types/subjects'
 import type { EditSubjectDialogProps } from '@/types/ui'
 import { Button } from '@/components/ui/button'
 import {
@@ -39,7 +39,7 @@ export function EditSubjectDialog({
   form,
   isUpdating,
   onSubmit,
-}: EditSubjectDialogProps<UseFormReturn<UpdateSubjectInput>>) {
+}: EditSubjectDialogProps<UseFormReturn<UpdateSubjectFormInput, unknown, UpdateSubjectInput>>) {
   const nameInputRef = useRef<HTMLInputElement | null>(null)
   const nameRegister = form.register('name', { required: 'Name is required' })
   const handleFormKeyDown = useFirefoxTabHandler()

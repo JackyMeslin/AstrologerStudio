@@ -3,6 +3,18 @@ import { NextResponse } from 'next/server'
 /**
  * Simple in-memory rate limiter
  * For production, consider using Redis or a dedicated rate limiting service
+ *
+ * ## Cleanup Timer Lifecycle
+ *
+ * The cleanup timer uses a **lazy initialization pattern**:
+ * - Timer is only started when the first rate limit entry is created
+ * - Timer stops automatically when all entries are cleaned up
+ * - `.unref()` is called to prevent blocking process exit
+ *
+ * This approach minimizes memory allocation when rate limiting is not in use,
+ * while still providing automatic cleanup during active use.
+ *
+ * For testing, `stopCleanup()` and `_getCleanupState()` are exported.
  */
 
 interface RateLimitEntry {
@@ -19,7 +31,11 @@ const rateLimitStore = new Map<string, RateLimitEntry>()
 const CLEANUP_INTERVAL = 60 * 1000 // 1 minute
 let cleanupTimer: NodeJS.Timeout | null = null
 
-function startCleanup() {
+/**
+ * Start the cleanup timer (lazy initialization).
+ * Only starts if not already running.
+ */
+function startCleanup(): void {
   if (cleanupTimer) return
 
   cleanupTimer = setInterval(() => {
@@ -29,6 +45,11 @@ function startCleanup() {
         rateLimitStore.delete(key)
       }
     }
+
+    // If store is empty after cleanup, stop the timer to free resources
+    if (rateLimitStore.size === 0) {
+      stopCleanup()
+    }
   }, CLEANUP_INTERVAL)
 
   // Don't keep the process alive just for cleanup
@@ -37,7 +58,35 @@ function startCleanup() {
   }
 }
 
-startCleanup()
+/**
+ * Stop the cleanup timer.
+ * Useful for testing and explicit lifecycle management.
+ */
+export function stopCleanup(): void {
+  if (cleanupTimer) {
+    clearInterval(cleanupTimer)
+    cleanupTimer = null
+  }
+}
+
+/**
+ * Get the current cleanup timer state (for testing purposes).
+ * @returns Object with timer status and store size
+ */
+export function _getCleanupState(): { timerActive: boolean; storeSize: number } {
+  return {
+    timerActive: cleanupTimer !== null,
+    storeSize: rateLimitStore.size,
+  }
+}
+
+/**
+ * Clear all rate limit entries (for testing purposes).
+ */
+export function _clearRateLimitStore(): void {
+  rateLimitStore.clear()
+  stopCleanup()
+}
 
 export interface RateLimitConfig {
   /** Maximum number of requests allowed in the window */
@@ -84,6 +133,10 @@ export function checkRateLimit(identifier: string, config: RateLimitConfig): Rat
       resetTime: now + windowMs,
     }
     rateLimitStore.set(key, newEntry)
+
+    // Start cleanup timer lazily on first entry
+    startCleanup()
+
     return {
       success: true,
       remaining: limit - 1,

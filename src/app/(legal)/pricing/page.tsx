@@ -13,6 +13,7 @@
 import { isDodoPaymentsEnabled } from '@/lib/subscription/config'
 import { getSession } from '@/lib/security/session'
 import { prisma } from '@/lib/db/prisma'
+import { logger } from '@/lib/logging/server'
 
 export default async function PricingPage({ searchParams }: { searchParams: Promise<{ onboarding?: string }> }) {
   const session = await getSession()
@@ -66,7 +67,8 @@ export default async function PricingPage({ searchParams }: { searchParams: Prom
       if (hasPaidPlan && session) {
         return (
           <div className="text-center">
-            <h1 className="text-3xl font-bold mb-8">Your Subscription</h1>
+            <h1 className="text-3xl font-bold mb-8">Pricing</h1>
+            <h2 className="text-2xl font-semibold mb-6">Your Subscription</h2>
             <div className="rounded-lg border bg-card p-6">
               <p className="text-lg font-medium">
                 You have an active <span className="text-primary capitalize">{plan}</span> subscription.
@@ -80,7 +82,8 @@ export default async function PricingPage({ searchParams }: { searchParams: Prom
       return (
         <div className="max-w-lg mx-auto">
           <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold mb-2">Choose Your Plan</h1>
+            <h1 className="text-3xl font-bold mb-2">Pricing</h1>
+            <h2 className="text-2xl font-semibold mb-2">Choose Your Plan</h2>
             <p className="text-muted-foreground">Unlock full access to Astrologer Studio</p>
           </div>
           <PricingCard
@@ -93,10 +96,11 @@ export default async function PricingPage({ searchParams }: { searchParams: Prom
       )
     } catch (error) {
       // Dodo Payments module import failed - show error
-      console.error('Failed to load Dodo Payments components:', error)
+      logger.error('Failed to load Dodo Payments components:', error)
       return (
         <div className="text-center">
-          <h1 className="text-3xl font-bold mb-4">Configuration Error</h1>
+          <h1 className="text-3xl font-bold mb-4">Pricing</h1>
+          <h2 className="text-2xl font-semibold mb-4">Configuration Error</h2>
           <p className="text-muted-foreground">
             Dodo Payments is enabled but components could not be loaded. Please check your installation.
           </p>
@@ -110,7 +114,8 @@ export default async function PricingPage({ searchParams }: { searchParams: Prom
   if (hasPaidPlan) {
     return (
       <div className="text-center">
-        <h1 className="text-3xl font-bold mb-8">Your Subscription</h1>
+        <h1 className="text-3xl font-bold mb-8">Pricing</h1>
+        <h2 className="text-2xl font-semibold mb-6">Your Subscription</h2>
         <div className="rounded-lg border bg-card p-6">
           <p className="text-lg font-medium">
             You have an active <span className="text-primary capitalize">{plan}</span> subscription.

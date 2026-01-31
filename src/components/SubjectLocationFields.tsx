@@ -3,17 +3,16 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { UseFormReturn, Path, PathValue } from 'react-hook-form'
 import { useWatch } from 'react-hook-form'
-import { Loader2, MapPin, ChevronsUpDownIcon, CheckIcon } from 'lucide-react'
+import { Loader2, MapPin } from 'lucide-react'
 
-import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
 import { TimezoneCombobox } from '@/components/TimezoneCombobox'
-
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
+import { CityAutocomplete, type CitySuggestion } from '@/components/location/CityAutocomplete'
+import { CountrySelector } from '@/components/location/CountrySelector'
+import { CoordinatesInput } from '@/components/location/CoordinatesInput'
 import { searchCitiesAction, getLocationDetailsAction, getTimezoneAction } from '@/actions/geonames'
-import { COUNTRY_OPTIONS } from '@/lib/geo/countries'
 import { cn } from '@/lib/utils/cn'
+import { MIN_SEARCH_LENGTH } from '@/lib/validation/search'
 
 export interface LocationFormValues {
   city?: string
@@ -23,16 +22,20 @@ export interface LocationFormValues {
   timezone: string
 }
 
-interface SubjectLocationFieldsProps<FormValues extends LocationFormValues> {
-  form: UseFormReturn<FormValues>
+interface SubjectLocationFieldsProps<
+  FormValues extends LocationFormValues,
+  TContext = unknown,
+  TTransformedValues = FormValues,
+> {
+  form: UseFormReturn<FormValues, TContext, TTransformedValues>
   disabled?: boolean
   dialogOpen: boolean
   idPrefix: string
 }
 
 // Type-safe form field setter to avoid `as any` assertions
-function setField<TForm extends LocationFormValues>(
-  form: UseFormReturn<TForm>,
+function setField<TForm extends LocationFormValues, TContext, TTransformedValues>(
+  form: UseFormReturn<TForm, TContext, TTransformedValues>,
   field: keyof LocationFormValues,
   value: string | number | undefined,
   options?: { shouldDirty?: boolean },
@@ -42,17 +45,22 @@ function setField<TForm extends LocationFormValues>(
   form.setValue(fieldPath, fieldValue, options)
 }
 
-export function SubjectLocationFields<FormValues extends LocationFormValues>({
+export function SubjectLocationFields<
+  FormValues extends LocationFormValues,
+  TContext = unknown,
+  TTransformedValues = FormValues,
+>({
   form,
   disabled = false,
   dialogOpen,
   idPrefix,
-}: SubjectLocationFieldsProps<FormValues>) {
+}: SubjectLocationFieldsProps<FormValues, TContext, TTransformedValues>) {
   const city = useWatch({ control: form.control, name: 'city' as Path<FormValues> }) as string | undefined
   const nation = useWatch({ control: form.control, name: 'nation' as Path<FormValues> }) as string | undefined
   const latitude = useWatch({ control: form.control, name: 'latitude' as Path<FormValues> }) as number | undefined
   const longitude = useWatch({ control: form.control, name: 'longitude' as Path<FormValues> }) as number | undefined
   const timezone = useWatch({ control: form.control, name: 'timezone' as Path<FormValues> }) as string | undefined
+
   const [manualCoordinates, setManualCoordinates] = useState(false)
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle')
   const [statusMessage, setStatusMessage] = useState<string | null>(null)
@@ -63,13 +71,9 @@ export function SubjectLocationFields<FormValues extends LocationFormValues>({
       ? (form.getValues('city' as Path<FormValues>) as string)
       : null,
   )
-  const [citySuggestions, setCitySuggestions] = useState<
-    { label: string; value: string; countryCode?: string; latitude: number; longitude: number }[]
-  >([])
+  const [citySuggestions, setCitySuggestions] = useState<CitySuggestion[]>([])
   const [cityLoading, setCityLoading] = useState(false)
   const [cityError, setCityError] = useState<string | null>(null)
-  const [countryOpen, setCountryOpen] = useState(false)
-  const [countryQuery, setCountryQuery] = useState('')
 
   const dirtyFields = form.formState.dirtyFields
   const locationDirty = Boolean(dirtyFields?.city || dirtyFields?.nation)
@@ -77,13 +81,8 @@ export function SubjectLocationFields<FormValues extends LocationFormValues>({
     const parts = [city, nation].map((v) => (typeof v === 'string' ? v.trim().toLowerCase() : '')).filter(Boolean)
     return parts.length ? parts.join('|') : null
   }, [city, nation])
-  const filteredCountries = useMemo(() => {
-    const q = countryQuery.trim().toLowerCase()
-    if (!q) return COUNTRY_OPTIONS
-    return COUNTRY_OPTIONS.filter(({ code, name }) => code.toLowerCase().includes(q) || name.toLowerCase().includes(q))
-  }, [countryQuery])
 
-  // Reset switch and status when the dialog is reopened
+  // Reset state when dialog is reopened
   useEffect(() => {
     setManualCoordinates(false)
     setStatus('idle')
@@ -96,8 +95,6 @@ export function SubjectLocationFields<FormValues extends LocationFormValues>({
     setSelectedCityLabel(null)
     setCitySuggestions([])
     setCityError(null)
-    setCountryQuery('')
-    setCountryOpen(false)
   }, [dialogOpen, form])
 
   useEffect(() => {
@@ -107,13 +104,11 @@ export function SubjectLocationFields<FormValues extends LocationFormValues>({
     }
   }, [locationKey, manualCoordinates])
 
-  useEffect(() => {
-    if (typeof city === 'string' && city !== cityInput) {
-      setCityInput(city)
-      setSelectedCityLabel(city)
-    }
-  }, [city, cityInput])
+  // Removed problematic sync effect that was interfering with user input
+  // The cityInput state is now the single source of truth for display
+  // and is properly synchronized through handleCityInputChange and handleCitySelect
 
+  // City search effect
   useEffect(() => {
     if (manualCoordinates) {
       setCitySuggestions([])
@@ -124,16 +119,13 @@ export function SubjectLocationFields<FormValues extends LocationFormValues>({
 
     const term = cityInput.trim()
     const isSelectedLabel = selectedCityLabel && term === selectedCityLabel.trim()
-    if (term.length < 2 || isSelectedLabel) {
+    if (term.length < MIN_SEARCH_LENGTH || isSelectedLabel) {
       setCitySuggestions([])
       setCityError(null)
       setCityLoading(false)
       return
     }
 
-    // Server actions do not support AbortSignal cancellation directly from client
-    // We handle the "cancellation" by checking if the component is still mounted/valid via a flag
-    // or just relying on the debounce + the fact that we clear suggestions on change.
     let active = true
 
     setCityLoading(true)
@@ -180,6 +172,7 @@ export function SubjectLocationFields<FormValues extends LocationFormValues>({
     return missingCoords || missingTimezone || locationDirty
   }, [manualCoordinates, city, latitude, longitude, timezone, locationDirty, lastLookupKey, locationKey])
 
+  // Location details fetch effect
   useEffect(() => {
     if (!shouldFetch || !locationKey) return
 
@@ -211,13 +204,14 @@ export function SubjectLocationFields<FormValues extends LocationFormValues>({
     }
   }, [shouldFetch, city, nation, form, locationKey])
 
-  const handleCitySelect = async (option: {
-    value: string
-    label: string
-    countryCode?: string
-    latitude: number
-    longitude: number
-  }) => {
+  const handleCityInputChange = (value: string) => {
+    setCityInput(value)
+    setSelectedCityLabel(null)
+    setField(form, 'city', value, { shouldDirty: true })
+    setLastLookupKey(null)
+  }
+
+  const handleCitySelect = async (option: CitySuggestion) => {
     if (manualCoordinates) {
       setCitySuggestions([])
       return
@@ -252,115 +246,56 @@ export function SubjectLocationFields<FormValues extends LocationFormValues>({
     }
   }
 
+  const handleNationChange = (value: string) => {
+    setField(form, 'nation', value, { shouldDirty: true })
+  }
+
+  const handleManualCoordinatesToggle = (checked: boolean) => {
+    setManualCoordinates(checked)
+    if (checked) {
+      setStatus('idle')
+      setStatusMessage(null)
+      setCitySuggestions([])
+      setCityLoading(false)
+      setCityError(null)
+    } else {
+      setLastLookupKey(null)
+    }
+  }
+
+  const handleLatitudeChange = (value: number | undefined) => {
+    setField(form, 'latitude', value)
+  }
+
+  const handleLongitudeChange = (value: number | undefined) => {
+    setField(form, 'longitude', value)
+  }
+
+  const handleTimezoneChange = (value: string) => {
+    setField(form, 'timezone', value)
+  }
+
   return (
     <div className="flex flex-col gap-3 rounded-lg border border-border/60 bg-muted/20 p-3">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="flex flex-col gap-1">
-          <label className="text-sm font-medium" htmlFor={`${idPrefix}_city`}>
-            City
-          </label>
-          <div className="relative">
-            <input
-              id={`${idPrefix}_city`}
-              className="border rounded px-2 py-1 text-sm bg-background w-full h-10"
-              placeholder="City"
-              value={cityInput}
-              onChange={(e) => {
-                setCityInput(e.target.value)
-                setSelectedCityLabel(null)
-                setField(form, 'city', e.target.value, { shouldDirty: true })
-                setLastLookupKey(null)
-              }}
-              disabled={disabled}
-              autoComplete="off"
-            />
-            {(cityLoading || cityError || citySuggestions.length > 0) && (
-              <div className="absolute z-20 mt-1 w-full rounded-md border border-border/70 bg-background shadow-lg">
-                {cityLoading && (
-                  <div className="flex items-center gap-2 px-3 py-2 text-xs text-muted-foreground">
-                    <Loader2 className="size-3 animate-spin" /> Searching...
-                  </div>
-                )}
-                {cityError && (
-                  <div className="px-3 py-2 text-xs text-destructive border-b border-border/60">{cityError}</div>
-                )}
-                {!cityLoading &&
-                  citySuggestions.map((option) => (
-                    <button
-                      type="button"
-                      key={`${option.value}-${option.latitude}-${option.longitude}`}
-                      className="flex w-full flex-col items-start gap-0.5 px-3 py-2 text-left hover:bg-muted/70 text-sm"
-                      onClick={() => handleCitySelect(option)}
-                    >
-                      <span className="font-medium">{option.label}</span>
-                      <span className="text-xs text-muted-foreground">
-                        Lat {option.latitude.toFixed(4)}, Lng {option.longitude.toFixed(4)}
-                      </span>
-                    </button>
-                  ))}
-              </div>
-            )}
-          </div>
-          {form.formState.errors.city && (
-            <span className="text-xs text-destructive">{form.formState.errors.city.message as string}</span>
-          )}
-        </div>
-        <div className="flex flex-col gap-1">
-          <label className="text-sm font-medium" htmlFor={`${idPrefix}_nation`}>
-            Nation
-          </label>
-          <Popover open={countryOpen} onOpenChange={setCountryOpen}>
-            <PopoverTrigger asChild>
-              <Button
-                type="button"
-                variant="outline"
-                className="w-full justify-between h-10"
-                disabled={disabled}
-                id={`${idPrefix}_nation`}
-              >
-                {(() => {
-                  const current = COUNTRY_OPTIONS.find((c) => c.code === nation)
-                  return current ? `${current.code} — ${current.name}` : 'Select nation'
-                })()}
-                <ChevronsUpDownIcon className="ml-2 h-4 w-4 opacity-50" />
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="p-0 w-[--radix-popover-trigger-width] max-h-[320px]">
-              <Command>
-                <CommandInput
-                  placeholder="Search nation..."
-                  value={countryQuery}
-                  onValueChange={setCountryQuery}
-                  className="h-10"
-                />
-                <CommandList>
-                  <CommandEmpty>No nation found.</CommandEmpty>
-                  <CommandGroup>
-                    {filteredCountries.map((country) => (
-                      <CommandItem
-                        key={country.code}
-                        value={country.code}
-                        onSelect={(val) => {
-                          setField(form, 'nation', val, { shouldDirty: true })
-                          setCountryOpen(false)
-                          setCountryQuery('')
-                        }}
-                      >
-                        <CheckIcon
-                          className={cn('mr-2 h-4 w-4', nation === country.code ? 'opacity-100' : 'opacity-0')}
-                        />
-                        {country.code} — {country.name}
-                      </CommandItem>
-                    ))}
-                  </CommandGroup>
-                </CommandList>
-              </Command>
-            </PopoverContent>
-          </Popover>
-          {form.formState.errors.nation && (
-            <span className="text-xs text-destructive">{form.formState.errors.nation.message as string}</span>
-          )}
-        </div>
+        <CityAutocomplete
+          id={`${idPrefix}_city`}
+          value={cityInput}
+          onChange={handleCityInputChange}
+          onSelect={handleCitySelect}
+          suggestions={citySuggestions}
+          loading={cityLoading}
+          error={cityError}
+          disabled={disabled}
+          errorMessage={form.formState.errors.city?.message as string | undefined}
+        />
+        <CountrySelector
+          id={`${idPrefix}_nation`}
+          value={nation}
+          onChange={handleNationChange}
+          disabled={disabled}
+          errorMessage={form.formState.errors.nation?.message as string | undefined}
+        />
       </div>
 
       <div className="flex flex-col gap-2 rounded-md border border-dashed border-border/70 bg-background px-3 py-2">
@@ -378,18 +313,7 @@ export function SubjectLocationFields<FormValues extends LocationFormValues>({
             <Switch
               id={`${idPrefix}_manual_coordinates`}
               checked={manualCoordinates}
-              onCheckedChange={(checked) => {
-                setManualCoordinates(checked)
-                if (checked) {
-                  setStatus('idle')
-                  setStatusMessage(null)
-                  setCitySuggestions([])
-                  setCityLoading(false)
-                  setCityError(null)
-                } else {
-                  setLastLookupKey(null)
-                }
-              }}
+              onCheckedChange={handleManualCoordinatesToggle}
               disabled={disabled}
             />
             <label className="text-sm" htmlFor={`${idPrefix}_manual_coordinates`}>
@@ -423,10 +347,13 @@ export function SubjectLocationFields<FormValues extends LocationFormValues>({
         {manualCoordinates && (
           <div className="flex flex-col gap-3 pt-1">
             <div className="flex flex-col gap-1">
-              <label className="text-sm font-medium">Timezone</label>
+              <label htmlFor={`${idPrefix}_timezone`} className="text-sm font-medium">
+                Timezone
+              </label>
               <TimezoneCombobox
+                id={`${idPrefix}_timezone`}
                 value={timezone || ''}
-                onChange={(v) => setField(form, 'timezone', v)}
+                onChange={handleTimezoneChange}
                 disabled={disabled}
                 side="bottom"
               />
@@ -434,54 +361,16 @@ export function SubjectLocationFields<FormValues extends LocationFormValues>({
                 <span className="text-xs text-destructive">{form.formState.errors.timezone.message as string}</span>
               )}
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="flex flex-col gap-1">
-                <label className="text-sm font-medium" htmlFor={`${idPrefix}_latitude`}>
-                  Latitude
-                </label>
-                <input
-                  id={`${idPrefix}_latitude`}
-                  type="number"
-                  step="0.0001"
-                  min={-90}
-                  max={90}
-                  className="border rounded px-2 py-1 text-sm bg-background"
-                  placeholder="-90 a 90"
-                  value={latitude ?? ''}
-                  onChange={(e) => {
-                    const v = e.target.value
-                    setField(form, 'latitude', v === '' ? undefined : Number(v))
-                  }}
-                  disabled={disabled}
-                />
-                {form.formState.errors.latitude && (
-                  <span className="text-xs text-destructive">{form.formState.errors.latitude.message as string}</span>
-                )}
-              </div>
-              <div className="flex flex-col gap-1">
-                <label className="text-sm font-medium" htmlFor={`${idPrefix}_longitude`}>
-                  Longitude
-                </label>
-                <input
-                  id={`${idPrefix}_longitude`}
-                  type="number"
-                  step="0.0001"
-                  min={-180}
-                  max={180}
-                  className="border rounded px-2 py-1 text-sm bg-background"
-                  placeholder="-180 a 180"
-                  value={longitude ?? ''}
-                  onChange={(e) => {
-                    const v = e.target.value
-                    setField(form, 'longitude', v === '' ? undefined : Number(v))
-                  }}
-                  disabled={disabled}
-                />
-                {form.formState.errors.longitude && (
-                  <span className="text-xs text-destructive">{form.formState.errors.longitude.message as string}</span>
-                )}
-              </div>
-            </div>
+            <CoordinatesInput
+              idPrefix={idPrefix}
+              latitude={latitude}
+              longitude={longitude}
+              onLatitudeChange={handleLatitudeChange}
+              onLongitudeChange={handleLongitudeChange}
+              disabled={disabled}
+              latitudeError={form.formState.errors.latitude?.message as string | undefined}
+              longitudeError={form.formState.errors.longitude?.message as string | undefined}
+            />
           </div>
         )}
       </div>

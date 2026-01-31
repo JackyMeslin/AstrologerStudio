@@ -3,6 +3,7 @@
 import { astrologerApi } from '@/lib/api/astrologer'
 import { getSession } from '@/lib/security/session'
 import { prisma } from '@/lib/db/prisma'
+import { logger } from '@/lib/logging/server'
 import type {
   SubjectModel,
   ChartResponse,
@@ -16,11 +17,19 @@ import { getChartPreferences, type ChartPreferencesData } from '@/actions/prefer
 /**
  * Track a chart calculation for analytics
  * Non-blocking: errors are logged but don't fail the chart calculation
+ *
+ * Gets userId from authenticated session to prevent IDOR attacks
  */
-async function trackChartCalculation(userId: string, chartType: string): Promise<void> {
-  const today = new Date().toISOString().split('T')[0]!
-
+export async function trackChartCalculation(chartType: string): Promise<void> {
   try {
+    const session = await getSession()
+    if (!session?.userId) {
+      // Silently skip tracking for unauthenticated requests
+      return
+    }
+    const userId = session.userId
+    const today = new Date().toISOString().split('T')[0]!
+
     await prisma.chartCalculationUsage.upsert({
       where: {
         userId_date_chartType: { userId, date: today, chartType },
@@ -37,7 +46,7 @@ async function trackChartCalculation(userId: string, chartType: string): Promise
     })
   } catch (error) {
     // Non-blocking: don't fail the chart if tracking fails
-    console.error('Failed to track chart calculation:', error)
+    logger.error('Failed to track chart calculation:', error)
   }
 }
 
@@ -137,167 +146,126 @@ function mergeOptionsWithPreferences(
   }
 }
 
-export async function getNatalChart(subject: Subject, options?: ChartRequestOptions): Promise<ChartResponse> {
-  const session = await getSession()
-  if (!session) throw new Error('Unauthorized')
+/**
+ * Higher-order function that wraps common chart action boilerplate:
+ * session verification, calculation tracking, preference loading, and option merging.
+ *
+ * @param chartType - Chart type identifier for analytics tracking
+ * @param apiCall - Callback receiving preferences, merged options, and returning the API response
+ * @returns A server action function with the provided args signature
+ */
+function createChartAction<TArgs extends unknown[]>(
+  chartType: string,
+  apiCall: (
+    prefs: ChartPreferencesData,
+    mergedOptions: ChartRequestOptions,
+    ...args: TArgs
+  ) => Promise<ChartResponse>,
+): (...args: TArgs) => Promise<ChartResponse> {
+  return async (...args: TArgs): Promise<ChartResponse> => {
+    const session = await getSession()
+    if (!session) throw new Error('Unauthorized')
 
-  // Track calculation (non-blocking)
-  trackChartCalculation(session.userId, 'natal')
+    // Track calculation (non-blocking)
+    void trackChartCalculation(chartType)
 
-  const prefs = await getChartPreferences()
-  if (!prefs) throw new Error('User preferences not found')
+    const prefs = await getChartPreferences()
+    if (!prefs) throw new Error('User preferences not found')
 
-  const mergedOptions = mergeOptionsWithPreferences(options, prefs)
-  const subjectModel = toSubjectModelWithPreferences(subject, prefs)
+    // Extract options as the last argument if it exists
+    const lastArg = args[args.length - 1] as ChartRequestOptions | undefined
+    const options = lastArg && typeof lastArg === 'object' && !('name' in lastArg) ? lastArg : undefined
+    const mergedOptions = mergeOptionsWithPreferences(options, prefs)
 
-  return await astrologerApi.getNatalChart(subjectModel, mergedOptions)
-}
-
-export async function getTransitChart(
-  natalSubject: Subject,
-  transitSubject: Subject,
-  options?: ChartRequestOptions,
-): Promise<ChartResponse> {
-  const session = await getSession()
-  if (!session) throw new Error('Unauthorized')
-
-  // Track calculation (non-blocking)
-  trackChartCalculation(session.userId, 'transit')
-
-  const prefs = await getChartPreferences()
-  if (!prefs) throw new Error('User preferences not found')
-
-  const mergedOptions = mergeOptionsWithPreferences(options, prefs)
-
-  // Config goes on natal subject only
-  const natalModel = toSubjectModelWithPreferences(natalSubject, prefs)
-  const transitModel = toBasicSubjectModel(transitSubject)
-
-  return await astrologerApi.getTransitChart(natalModel, transitModel, mergedOptions)
-}
-
-export async function getSynastryChart(
-  subjectA: Subject,
-  subjectB: Subject,
-  options?: ChartRequestOptions,
-): Promise<ChartResponse> {
-  const session = await getSession()
-  if (!session) throw new Error('Unauthorized')
-
-  // Track calculation (non-blocking)
-  trackChartCalculation(session.userId, 'synastry')
-
-  const prefs = await getChartPreferences()
-  if (!prefs) throw new Error('User preferences not found')
-
-  const mergedOptions = mergeOptionsWithPreferences(options, prefs)
-
-  // Config goes on first subject
-  const modelA = toSubjectModelWithPreferences(subjectA, prefs)
-  const modelB = toBasicSubjectModel(subjectB)
-
-  return await astrologerApi.getSynastryChart(modelA, modelB, mergedOptions)
-}
-
-export async function getCompositeChart(
-  subjectA: Subject,
-  subjectB: Subject,
-  options?: ChartRequestOptions,
-): Promise<ChartResponse> {
-  const session = await getSession()
-  if (!session) throw new Error('Unauthorized')
-
-  // Track calculation (non-blocking)
-  trackChartCalculation(session.userId, 'composite')
-
-  const prefs = await getChartPreferences()
-  if (!prefs) throw new Error('User preferences not found')
-
-  const mergedOptions = mergeOptionsWithPreferences(options, prefs)
-
-  // Config goes on first subject
-  const modelA = toSubjectModelWithPreferences(subjectA, prefs)
-  const modelB = toBasicSubjectModel(subjectB)
-
-  const response = await astrologerApi.getCompositeChart(modelA, modelB, mergedOptions)
-
-  // Ensure first_subject and second_subject are present in the response
-  // This is required for AI interpretation context generation
-  if (response.status === 'OK' && response.chart_data) {
-    if (!response.chart_data.first_subject) {
-      response.chart_data.first_subject = modelA as EnrichedSubjectModel
-    }
-    if (!response.chart_data.second_subject) {
-      response.chart_data.second_subject = modelB as EnrichedSubjectModel
-    }
+    return await apiCall(prefs, mergedOptions, ...args)
   }
-
-  return response
 }
 
-export async function getNowChart(options?: ChartRequestOptions): Promise<ChartResponse> {
-  const session = await getSession()
-  if (!session) throw new Error('Unauthorized')
+export const getNatalChart = createChartAction(
+  'natal',
+  (prefs, mergedOptions, subject: Subject, _options?: ChartRequestOptions) => {
+    const subjectModel = toSubjectModelWithPreferences(subject, prefs)
+    return astrologerApi.getNatalChart(subjectModel, mergedOptions)
+  },
+)
 
-  // Track calculation (non-blocking)
-  trackChartCalculation(session.userId, 'now')
+export const getTransitChart = createChartAction(
+  'transit',
+  (prefs, mergedOptions, natalSubject: Subject, transitSubject: Subject, _options?: ChartRequestOptions) => {
+    // Config goes on natal subject only
+    const natalModel = toSubjectModelWithPreferences(natalSubject, prefs)
+    const transitModel = toBasicSubjectModel(transitSubject)
+    return astrologerApi.getTransitChart(natalModel, transitModel, mergedOptions)
+  },
+)
 
-  const prefs = await getChartPreferences()
-  if (!prefs) throw new Error('User preferences not found')
+export const getSynastryChart = createChartAction(
+  'synastry',
+  (prefs, mergedOptions, subjectA: Subject, subjectB: Subject, _options?: ChartRequestOptions) => {
+    // Config goes on first subject
+    const modelA = toSubjectModelWithPreferences(subjectA, prefs)
+    const modelB = toBasicSubjectModel(subjectB)
+    return astrologerApi.getSynastryChart(modelA, modelB, mergedOptions)
+  },
+)
 
-  const mergedOptions = mergeOptionsWithPreferences(options, prefs)
+export const getCompositeChart = createChartAction(
+  'composite',
+  async (prefs, mergedOptions, subjectA: Subject, subjectB: Subject, _options?: ChartRequestOptions) => {
+    // Config goes on first subject
+    const modelA = toSubjectModelWithPreferences(subjectA, prefs)
+    const modelB = toBasicSubjectModel(subjectB)
 
-  return await astrologerApi.getNowChart(mergedOptions)
-}
+    const response = await astrologerApi.getCompositeChart(modelA, modelB, mergedOptions)
 
-export async function getSolarReturnChart(
-  subject: Subject,
-  options?: PlanetaryReturnRequestOptions,
-): Promise<ChartResponse> {
-  const session = await getSession()
-  if (!session) throw new Error('Unauthorized')
+    // Ensure first_subject and second_subject are present in the response
+    // This is required for AI interpretation context generation
+    if (response.status === 'OK' && response.chart_data) {
+      if (!response.chart_data.first_subject) {
+        response.chart_data.first_subject = modelA as EnrichedSubjectModel
+      }
+      if (!response.chart_data.second_subject) {
+        response.chart_data.second_subject = modelB as EnrichedSubjectModel
+      }
+    }
 
-  // Track calculation (non-blocking)
-  trackChartCalculation(session.userId, 'solar-return')
+    return response
+  },
+)
 
-  const prefs = await getChartPreferences()
-  if (!prefs) throw new Error('User preferences not found')
+export const getNowChart = createChartAction(
+  'now',
+  (_prefs, mergedOptions, _options?: ChartRequestOptions) => {
+    return astrologerApi.getNowChart(mergedOptions)
+  },
+)
 
-  const mergedOptions = mergeOptionsWithPreferences(options, prefs)
-  const subjectModel = toSubjectModelWithPreferences(subject, prefs)
+export const getSolarReturnChart = createChartAction(
+  'solar-return',
+  (prefs, mergedOptions, subject: Subject, options?: PlanetaryReturnRequestOptions) => {
+    const subjectModel = toSubjectModelWithPreferences(subject, prefs)
+    return astrologerApi.getSolarReturnChart(subjectModel, {
+      ...mergedOptions,
+      year: options?.year,
+      month: options?.month,
+      iso_datetime: options?.iso_datetime,
+      return_location: options?.return_location,
+      wheel_type: options?.wheel_type,
+    })
+  },
+)
 
-  return await astrologerApi.getSolarReturnChart(subjectModel, {
-    ...mergedOptions,
-    year: options?.year,
-    month: options?.month,
-    iso_datetime: options?.iso_datetime,
-    return_location: options?.return_location,
-    wheel_type: options?.wheel_type,
-  })
-}
-
-export async function getLunarReturnChart(
-  subject: Subject,
-  options?: PlanetaryReturnRequestOptions,
-): Promise<ChartResponse> {
-  const session = await getSession()
-  if (!session) throw new Error('Unauthorized')
-
-  // Track calculation (non-blocking)
-  trackChartCalculation(session.userId, 'lunar-return')
-
-  const prefs = await getChartPreferences()
-  if (!prefs) throw new Error('User preferences not found')
-
-  const mergedOptions = mergeOptionsWithPreferences(options, prefs)
-  const subjectModel = toSubjectModelWithPreferences(subject, prefs)
-
-  return await astrologerApi.getLunarReturnChart(subjectModel, {
-    ...mergedOptions,
-    year: options?.year,
-    month: options?.month,
-    iso_datetime: options?.iso_datetime,
-    return_location: options?.return_location,
-    wheel_type: options?.wheel_type,
-  })
-}
+export const getLunarReturnChart = createChartAction(
+  'lunar-return',
+  (prefs, mergedOptions, subject: Subject, options?: PlanetaryReturnRequestOptions) => {
+    const subjectModel = toSubjectModelWithPreferences(subject, prefs)
+    return astrologerApi.getLunarReturnChart(subjectModel, {
+      ...mergedOptions,
+      year: options?.year,
+      month: options?.month,
+      iso_datetime: options?.iso_datetime,
+      return_location: options?.return_location,
+      wheel_type: options?.wheel_type,
+    })
+  },
+)

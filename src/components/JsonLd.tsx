@@ -3,13 +3,15 @@
  * Provides Schema.org markup for better search engine visibility
  */
 
+import { APP_URL } from '@/lib/config/app'
+
 export function OrganizationJsonLd() {
   const structuredData = {
     '@context': 'https://schema.org',
     '@type': 'Organization',
     name: 'Astrologer Studio',
-    url: 'https://astrologerstudio.com',
-    logo: 'https://astrologerstudio.com/favicon.ico',
+    url: APP_URL,
+    logo: `${APP_URL}/favicon.ico`,
     description:
       'Professional, open-source astrology software for generating highly accurate natal charts, transit charts, synastry charts, and ephemeris.',
     sameAs: ['https://github.com/g-battaglia/AstrologerStudio'],
@@ -23,7 +25,7 @@ export function WebApplicationJsonLd() {
     '@context': 'https://schema.org',
     '@type': 'WebApplication',
     name: 'Astrologer Studio',
-    url: 'https://astrologerstudio.com',
+    url: APP_URL,
     applicationCategory: 'LifestyleApplication',
     operatingSystem: 'Any',
     offers: {
@@ -40,7 +42,7 @@ export function WebApplicationJsonLd() {
       'Ephemeris Tables',
       'Professional Astrological Calculations',
     ],
-    screenshot: 'https://astrologerstudio.com/screen/birth-chart.webp',
+    screenshot: `${APP_URL}/screen/birth-chart.webp`,
     softwareVersion: '1.0',
     author: {
       '@type': 'Person',

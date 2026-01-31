@@ -1,6 +1,47 @@
 'use client'
 
-import { Activity, AlertTriangle, Target, TrendingUp } from 'lucide-react'
+import { Activity, AlertTriangle, CheckCircle, Target, TrendingUp, XCircle } from 'lucide-react'
+
+/**
+ * Status level for metrics (WCAG 1.4.1 - information not conveyed by color alone)
+ */
+type StatusLevel = 'good' | 'warning' | 'critical'
+
+/**
+ * Gets status level and accessible label for retention rate
+ */
+function getRetentionStatus(rate: number): { level: StatusLevel; label: string } {
+  if (rate >= 30) return { level: 'good', label: 'Good' }
+  if (rate >= 15) return { level: 'warning', label: 'Fair' }
+  return { level: 'critical', label: 'Low' }
+}
+
+/**
+ * Gets status level and accessible label for churn risk
+ */
+function getChurnStatus(risk: number): { level: StatusLevel; label: string } {
+  if (risk >= 50) return { level: 'critical', label: 'High Risk' }
+  if (risk >= 30) return { level: 'warning', label: 'Moderate Risk' }
+  return { level: 'good', label: 'Low Risk' }
+}
+
+/**
+ * Status indicator component with icon for accessibility (WCAG 1.4.1)
+ */
+function StatusIndicator({ level, label, value }: { level: StatusLevel; label: string; value: string }) {
+  const colorClass = level === 'good' ? 'text-green-400' : level === 'warning' ? 'text-yellow-400' : 'text-red-400'
+
+  const Icon = level === 'good' ? CheckCircle : level === 'warning' ? AlertTriangle : XCircle
+
+  return (
+    <span className={`font-medium flex items-center gap-1 ${colorClass}`}>
+      <Icon className="h-3.5 w-3.5" aria-hidden="true" />
+      <span>
+        {value} <span className="text-xs opacity-80">({label})</span>
+      </span>
+    </span>
+  )
+}
 
 interface EngagementMetricsProps {
   activeUsersToday: number
@@ -31,6 +72,8 @@ export function EngagementMetrics({
   const aiAdoptionRate = totalUsers > 0 ? Math.round((usersWithAIUsage / totalUsers) * 100) : 0
   const chartsAdoptionRate = totalUsers > 0 ? Math.round((usersWithSavedCharts / totalUsers) * 100) : 0
   const churnRisk = totalUsers > 0 ? Math.round((inactiveUsers30d / totalUsers) * 100) : 0
+  const retentionStatus = getRetentionStatus(retentionRate7d)
+  const churnStatus = getChurnStatus(churnRisk)
 
   return (
     <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
@@ -66,13 +109,13 @@ export function EngagementMetrics({
         <div>
           <p className="text-slate-400 text-sm mb-2">Retention & Engagement</p>
           <div className="space-y-1">
-            <div className="flex justify-between">
+            <div className="flex justify-between items-center">
               <span className="text-slate-300 text-sm">7-Day Retention</span>
-              <span
-                className={`font-medium ${retentionRate7d >= 30 ? 'text-green-400' : retentionRate7d >= 15 ? 'text-yellow-400' : 'text-red-400'}`}
-              >
-                {retentionRate7d}%
-              </span>
+              <StatusIndicator
+                level={retentionStatus.level}
+                label={retentionStatus.label}
+                value={`${retentionRate7d}%`}
+              />
             </div>
             <div className="flex justify-between">
               <span className="text-slate-300 text-sm">Avg Logins/User</span>
@@ -116,13 +159,13 @@ export function EngagementMetrics({
             Health Indicators
           </p>
           <div className="space-y-1">
-            <div className="flex justify-between">
+            <div className="flex justify-between items-center">
               <span className="text-slate-300 text-sm">Inactive (30+ days)</span>
-              <span
-                className={`font-medium ${churnRisk >= 50 ? 'text-red-400' : churnRisk >= 30 ? 'text-yellow-400' : 'text-green-400'}`}
-              >
-                {inactiveUsers30d} ({churnRisk}%)
-              </span>
+              <StatusIndicator
+                level={churnStatus.level}
+                label={churnStatus.label}
+                value={`${inactiveUsers30d} (${churnRisk}%)`}
+              />
             </div>
           </div>
         </div>

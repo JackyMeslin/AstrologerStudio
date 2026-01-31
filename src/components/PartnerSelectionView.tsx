@@ -8,7 +8,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { useRouter } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
 import { getSubjects, getSubjectById } from '@/actions/subjects'
-import { useDateFormat } from '@/hooks/useDateFormat'
+import { useChartPreferences } from '@/hooks/useChartPreferences'
 import { formatDisplayDate } from '@/lib/utils/date'
 import { DataTable } from '@/components/data-table/DataTable'
 import { SubjectSelectorDialog } from '@/components/SubjectSelectorDialog'
@@ -90,7 +90,7 @@ function createPartnerColumns(dateFormat: DateFormat): ColumnDef<Subject, unknow
 
 export function PartnerSelectionView({ subjectId, chartType, title, subtitle }: PartnerSelectionViewProps) {
   const router = useRouter()
-  const dateFormat = useDateFormat()
+  const { dateFormat } = useChartPreferences()
   const [changeDialogOpen, setChangeDialogOpen] = useState(false)
 
   const { data: subject, isLoading: isLoadingSubject } = useQuery({
@@ -117,13 +117,9 @@ export function PartnerSelectionView({ subjectId, chartType, title, subtitle }: 
 
   if (isLoadingSubject || isLoadingAll) {
     return (
-      <div className="space-y-6 p-0 md:p-2">
-        <div className="space-y-2">
-          <Skeleton className="h-10 w-2/3" />
-          <Skeleton className="h-5 w-1/3" />
-        </div>
-        <Skeleton className="h-32 w-full max-w-md" />
-        <Skeleton className="h-64 w-full" />
+      <div className="space-y-4 p-0 md:p-2">
+        <Skeleton className="h-10 w-1/3" />
+        <Skeleton className="h-[600px] w-full" />
       </div>
     )
   }

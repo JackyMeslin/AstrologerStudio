@@ -2,6 +2,7 @@ import 'server-only'
 import { SignJWT, jwtVerify } from 'jose'
 import { cookies, headers } from 'next/headers'
 import { prisma } from '@/lib/db/prisma'
+import { logger } from '@/lib/logging/server'
 
 /**
  * Admin Session Management
@@ -24,7 +25,7 @@ if (process.env.NODE_ENV === 'production') {
 // Development fallback with warning
 const effectiveSecret = secretKey || 'dev-only-admin-secret-key-change-in-prod-32c'
 if (!secretKey) {
-  console.warn('⚠️  Using default ADMIN_SESSION_SECRET. Set a secure secret for production!')
+  logger.warn('Using default ADMIN_SESSION_SECRET. Set a secure secret for production!')
 }
 
 const encodedKey = new TextEncoder().encode(effectiveSecret)
@@ -93,6 +94,27 @@ export async function getUserAgent(): Promise<string> {
 }
 
 /**
+ * Clears any stale admin_session cookies that may exist on other paths.
+ *
+ * When a cookie with the same name exists on multiple paths (e.g. "/" and "/admin"),
+ * the browser sends both in the Cookie header. `cookies().get()` returns only the
+ * first occurrence, which may be the stale one, causing session validation to fail.
+ *
+ * This function deletes the cookie on the root path to prevent path-based conflicts.
+ */
+async function clearStaleCookies(cookieStore: Awaited<ReturnType<typeof cookies>>): Promise<void> {
+  // Delete any stale cookie that might exist on the root path
+  // This is a no-op if the cookie doesn't exist on that path
+  cookieStore.set(ADMIN_COOKIE_NAME, '', {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    expires: new Date(0),
+    sameSite: 'strict',
+    path: '/',
+  })
+}
+
+/**
  * Creates a new admin session
  * - Creates database session record for tracking
  * - Sets encrypted cookie
@@ -145,6 +167,10 @@ export async function createAdminSession(
   })
 
   const cookieStore = await cookies()
+
+  // Clear any stale cookies on other paths to prevent path-based conflicts
+  await clearStaleCookies(cookieStore)
+
   cookieStore.set(ADMIN_COOKIE_NAME, session, {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
@@ -224,7 +250,10 @@ export async function deleteAdminSession(): Promise<void> {
       })
   }
 
+  // Delete on the specific path
   cookieStore.delete(ADMIN_COOKIE_NAME)
+  // Also clear any stale cookies on other paths
+  await clearStaleCookies(cookieStore)
 }
 
 /**

@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { cn } from '@/lib/utils/cn'
 import { useUIPreferences } from '@/stores/uiPreferences'
-import { useDateFormat, useTimeFormat } from '@/hooks/useDateFormat'
+import { useChartPreferences } from '@/hooks/useChartPreferences'
 import { formatDisplayDate, formatDisplayTime, DateFormat, TimeFormat } from '@/lib/utils/date'
 
 type Props = {
@@ -80,8 +80,7 @@ export default function CompositeDetailsCard({
   const contentId = useId()
   const collapsed = useUIPreferences((state) => state.collapsed[id] ?? false)
   const toggleCollapsed = useUIPreferences((state) => state.toggleCollapsed)
-  const dateFormat = useDateFormat()
-  const timeFormat = useTimeFormat()
+  const { dateFormat, timeFormat } = useChartPreferences()
 
   const subject1 = chartData.first_subject
   const subject2 = chartData.second_subject

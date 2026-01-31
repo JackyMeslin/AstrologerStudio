@@ -11,7 +11,7 @@ import type {
 import { logger } from '@/lib/logging/server'
 
 const BASE_URL = process.env.ASTROLOGER_API_URL
-const DEFAULT_TIMEOUT = 15000 // 10 seconds
+const DEFAULT_TIMEOUT = 15000 // 15 seconds
 
 // Configurable API headers (defaults to RapidAPI format)
 const ASTROLOGER_API_HOST = process.env.ASTROLOGER_API_HOST || 'astrologer.p.rapidapi.com'

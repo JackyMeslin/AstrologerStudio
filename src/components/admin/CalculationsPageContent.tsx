@@ -2,24 +2,11 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
-  Legend,
-  AreaChart,
-  Area,
-} from 'recharts'
+import dynamic from 'next/dynamic'
 import { Calculator, Trash2, Loader2, AlertTriangle, RefreshCw, TrendingUp, Calendar, PieChartIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { ChartLoadingSkeleton } from '@/components/ui/chart-loading-skeleton'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -46,6 +33,26 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { cn } from '@/lib/utils/cn'
 import { useDebounce } from '@/hooks/use-debounce'
+import { clientLogger } from '@/lib/logging/client'
+import { TIME_PERIOD_COLORS, getAdminChartColor } from '@/lib/config/chart-colors'
+
+// Dynamically import chart components to avoid loading recharts in the initial bundle
+const AdminBarChartContent = dynamic(
+  () => import('@/components/admin/AdminChartContent').then((mod) => mod.AdminBarChartContent),
+  { ssr: false, loading: () => <ChartLoadingSkeleton height={288} variant="admin" /> },
+)
+const AdminPieChartContent = dynamic(
+  () => import('@/components/admin/AdminChartContent').then((mod) => mod.AdminPieChartContent),
+  { ssr: false, loading: () => <ChartLoadingSkeleton height={288} variant="admin" /> },
+)
+const AdminAreaChartContent = dynamic(
+  () => import('@/components/admin/AdminChartContent').then((mod) => mod.AdminAreaChartContent),
+  { ssr: false, loading: () => <ChartLoadingSkeleton height={288} variant="admin" /> },
+)
+const AdminMultiBarChartContent = dynamic(
+  () => import('@/components/admin/AdminChartContent').then((mod) => mod.AdminMultiBarChartContent),
+  { ssr: false, loading: () => <ChartLoadingSkeleton height={288} variant="admin" /> },
+)
 
 interface CalculationsPageContentProps {
   isSuperAdmin: boolean
@@ -61,17 +68,6 @@ const CHART_TYPE_LABELS: Record<string, string> = {
   now: 'Now Chart',
   timeline: 'Timeline',
 }
-
-const COLORS = [
-  '#8b5cf6', // purple
-  '#3b82f6', // blue
-  '#ec4899', // pink
-  '#f59e0b', // amber
-  '#10b981', // emerald
-  '#06b6d4', // cyan
-  '#f43f5e', // rose
-  '#84cc16', // lime
-]
 
 type TimePeriod = 'today' | 'week' | 'month' | 'all'
 
@@ -137,7 +133,7 @@ export function CalculationsPageContent({ isSuperAdmin }: CalculationsPageConten
         }
       }
     } catch (error) {
-      console.error('Failed to fetch calculation data:', error)
+      clientLogger.error('Failed to fetch calculation data:', error)
       toast.error('Failed to load calculation data')
     }
 
@@ -191,7 +187,7 @@ export function CalculationsPageContent({ isSuperAdmin }: CalculationsPageConten
   const pieChartData = currentData.byType.map((item, idx) => ({
     name: CHART_TYPE_LABELS[item.type] || item.type,
     value: item.count,
-    color: COLORS[idx % COLORS.length],
+    color: getAdminChartColor(idx),
   }))
 
   // Comparison data for time period comparison
@@ -304,9 +300,8 @@ export function CalculationsPageContent({ isSuperAdmin }: CalculationsPageConten
                           setSelectedUserId(user.id)
                           setSelectedUserLabel(user.username)
                           setUserSearchOpen(false)
-                          // Reset query to clean up
+                          // Don't reset results here - let the effect handle it when query changes
                           setUserSearchQuery('')
-                          setUserSearchResults([])
                         }}
                         className="text-slate-300 aria-selected:bg-slate-700 aria-selected:text-white"
                       >
@@ -359,7 +354,7 @@ export function CalculationsPageContent({ isSuperAdmin }: CalculationsPageConten
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div
           className={`bg-slate-800/50 border border-slate-700 rounded-xl p-6 cursor-pointer transition-all ${viewPeriod === 'today' ? 'ring-2 ring-purple-500' : 'hover:border-slate-600'}`}
           onClick={() => setViewPeriod('today')}
@@ -418,10 +413,10 @@ export function CalculationsPageContent({ isSuperAdmin }: CalculationsPageConten
         {/* Bar Chart - Usage by Type */}
         <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+            <h2 className="text-lg font-semibold text-white flex items-center gap-2">
               <Calculator className="h-5 w-5 text-purple-400" />
               Usage by Chart Type
-            </h3>
+            </h2>
             <Select value={viewPeriod} onValueChange={(v) => setViewPeriod(v as TimePeriod)}>
               <SelectTrigger className="w-36 bg-slate-900/50 border-slate-600 text-white h-9">
                 <SelectValue />
@@ -437,22 +432,15 @@ export function CalculationsPageContent({ isSuperAdmin }: CalculationsPageConten
 
           {barChartData.length > 0 ? (
             <div className="h-72">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={barChartData} layout="vertical" margin={{ left: 20 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#475569" />
-                  <XAxis type="number" stroke="#94a3b8" />
-                  <YAxis dataKey="name" type="category" stroke="#94a3b8" width={100} tick={{ fontSize: 12 }} />
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: '#1e293b',
-                      border: '1px solid #475569',
-                      borderRadius: '8px',
-                    }}
-                    formatter={(value: number) => [value.toLocaleString(), periodLabels[viewPeriod]]}
-                  />
-                  <Bar dataKey="count" fill="#8b5cf6" radius={[0, 4, 4, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
+              <AdminBarChartContent
+                data={barChartData}
+                layout="vertical"
+                xAxisType="number"
+                yAxisType="category"
+                yAxisWidth={100}
+                tooltipFormatter={(value) => [value.toLocaleString(), periodLabels[viewPeriod]]}
+                margin={{ left: 20 }}
+              />
             </div>
           ) : (
             <p className="text-slate-500 text-center py-16">No calculations for this period</p>
@@ -461,40 +449,20 @@ export function CalculationsPageContent({ isSuperAdmin }: CalculationsPageConten
 
         {/* Pie Chart - Distribution */}
         <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
-          <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+          <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
             <PieChartIcon className="h-5 w-5 text-pink-400" />
             Distribution ({periodLabels[viewPeriod]})
-          </h3>
+          </h2>
 
           {pieChartData.length > 0 && currentData.total > 0 ? (
             <div className="h-72">
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={pieChartData}
-                    dataKey="value"
-                    nameKey="name"
-                    cx="50%"
-                    cy="50%"
-                    outerRadius={90}
-                    label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                    labelLine={false}
-                  >
-                    {pieChartData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: '#1e293b',
-                      border: '1px solid #475569',
-                      borderRadius: '8px',
-                    }}
-                    formatter={(value: number) => [value.toLocaleString(), 'Calculations']}
-                  />
-                  <Legend />
-                </PieChart>
-              </ResponsiveContainer>
+              <AdminPieChartContent
+                data={pieChartData}
+                outerRadius={90}
+                labelFormatter={({ name, percent }: { name: string; percent: number }) =>
+                  `${name} ${(percent * 100).toFixed(0)}%`
+                }
+              />
             </div>
           ) : (
             <p className="text-slate-500 text-center py-16">No calculations for this period</p>
@@ -506,71 +474,47 @@ export function CalculationsPageContent({ isSuperAdmin }: CalculationsPageConten
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Period Comparison - Area Chart */}
         <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
-          <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+          <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
             <TrendingUp className="h-5 w-5 text-cyan-400" />
             Period Comparison
-          </h3>
+          </h2>
 
           <div className="h-72">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={comparisonData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#475569" />
-                <XAxis dataKey="period" stroke="#94a3b8" tick={{ fontSize: 12 }} />
-                <YAxis stroke="#94a3b8" />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: '#1e293b',
-                    border: '1px solid #475569',
-                    borderRadius: '8px',
-                  }}
-                  formatter={(value: number) => [value.toLocaleString(), 'Calculations']}
-                />
-                <Area type="monotone" dataKey="count" stroke="#06b6d4" fill="#06b6d4" fillOpacity={0.3} />
-              </AreaChart>
-            </ResponsiveContainer>
+            <AdminAreaChartContent
+              data={comparisonData}
+              dataKeyX="period"
+              dataKeyY="count"
+              tooltipFormatter={(value) => [value.toLocaleString(), 'Calculations']}
+            />
           </div>
         </div>
 
         {/* Multi-period comparison by type */}
         <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
-          <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+          <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
             <Calendar className="h-5 w-5 text-amber-400" />
             Usage Comparison by Type
-          </h3>
+          </h2>
 
           <div className="h-72">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={usageComparisonData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#475569" />
-                <XAxis
-                  dataKey="name"
-                  stroke="#94a3b8"
-                  tick={{ fontSize: 10 }}
-                  angle={-45}
-                  textAnchor="end"
-                  height={60}
-                />
-                <YAxis stroke="#94a3b8" />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: '#1e293b',
-                    border: '1px solid #475569',
-                    borderRadius: '8px',
-                  }}
-                />
-                <Legend />
-                <Bar dataKey="today" name="Today" fill="#3b82f6" />
-                <Bar dataKey="week" name="Week" fill="#06b6d4" />
-                <Bar dataKey="month" name="Month" fill="#f59e0b" />
-              </BarChart>
-            </ResponsiveContainer>
+            <AdminMultiBarChartContent
+              data={usageComparisonData}
+              xAxisAngle={-45}
+              xAxisTextAnchor="end"
+              xAxisHeight={60}
+              bars={[
+                { dataKey: 'today', name: 'Today', fill: TIME_PERIOD_COLORS.today },
+                { dataKey: 'week', name: 'Week', fill: TIME_PERIOD_COLORS.week },
+                { dataKey: 'month', name: 'Month', fill: TIME_PERIOD_COLORS.month },
+              ]}
+            />
           </div>
         </div>
       </div>
 
       {/* Detailed Table */}
       <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
-        <h3 className="text-lg font-semibold text-white mb-4">Detailed Breakdown</h3>
+        <h2 className="text-lg font-semibold text-white mb-4">Detailed Breakdown</h2>
 
         <div className="overflow-x-auto">
           <table className="w-full">
@@ -589,7 +533,7 @@ export function CalculationsPageContent({ isSuperAdmin }: CalculationsPageConten
                 <tr key={item.name} className="border-b border-slate-700/50 hover:bg-slate-700/20">
                   <td className="py-3 px-4">
                     <div className="flex items-center gap-2">
-                      <span className="w-3 h-3 rounded-full" style={{ backgroundColor: COLORS[idx % COLORS.length] }} />
+                      <span className="w-3 h-3 rounded-full" style={{ backgroundColor: getAdminChartColor(idx) }} />
                       <span className="text-white font-medium">{item.name}</span>
                     </div>
                   </td>
@@ -621,10 +565,10 @@ export function CalculationsPageContent({ isSuperAdmin }: CalculationsPageConten
 
       {/* Top Users by Calculations */}
       <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
-        <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+        <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
           <TrendingUp className="h-5 w-5 text-green-400" />
           Top Users by Calculations
-        </h3>
+        </h2>
 
         <div className="overflow-x-auto">
           <table className="w-full">

@@ -26,7 +26,10 @@ export function PDFNotesSection({ notes, title = 'Interpretation' }: PDFNotesSec
 
       <View style={styles.notesContainer}>
         {paragraphs.map((paragraph, index) => (
-          <Text key={index} style={[styles.notesText, index > 0 ? { marginTop: 8 } : {}]}>
+          <Text
+            key={`para-${paragraph.slice(0, 50).replace(/\s+/g, '-')}`}
+            style={[styles.notesText, index > 0 ? { marginTop: 8 } : {}]}
+          >
             {paragraph.trim()}
           </Text>
         ))}

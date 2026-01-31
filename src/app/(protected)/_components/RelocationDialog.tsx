@@ -20,6 +20,7 @@ import { Input } from '@/components/ui/input'
 import { TimezoneCombobox } from '@/components/TimezoneCombobox'
 import { searchCitiesAction, getTimezoneAction } from '@/actions/geonames'
 import { cn } from '@/lib/utils/cn'
+import { MIN_SEARCH_LENGTH } from '@/lib/validation/search'
 
 export interface LocationData {
   city: string
@@ -84,7 +85,7 @@ export function RelocationDialog({ currentLocation, onLocationChange }: Relocati
     if (isManual) return
 
     const term = cityInput.trim()
-    if (term.length < 2) {
+    if (term.length < MIN_SEARCH_LENGTH) {
       setSuggestions([])
       return
     }

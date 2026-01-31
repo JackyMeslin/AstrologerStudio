@@ -12,6 +12,7 @@ import { headers } from 'next/headers'
 import { checkRateLimit, getClientIp, RATE_LIMITS } from '@/lib/security/rate-limit'
 import { LEGAL_VERSIONS } from '@/lib/config/legal'
 import { calculateTrialEndDate } from '@/lib/config/trial'
+import { TOKEN_EXPIRY_MS } from '@/lib/config/time'
 
 /**
  * Result type for registration actions
@@ -61,7 +62,7 @@ export async function registerUser(data: {
   recaptchaToken: string
 }): Promise<ActionResult> {
   // Check if registration is enabled
-  if (!isEmailRegistrationEnabled()) {
+  if (!(await isEmailRegistrationEnabled())) {
     return { error: 'Email registration is currently disabled.' }
   }
 
@@ -116,41 +117,45 @@ export async function registerUser(data: {
     // Calculate trial end date for new users
     const trialEndsAt = calculateTrialEndDate()
 
-    // Create user with trial subscription (not verified yet) with terms acceptance
-    const now = new Date()
-    const user = await prisma.user.create({
-      data: {
-        username: validation.data.username,
-        email: validation.data.email,
-        password: hashedPassword,
-        authProvider: 'credentials',
-        // New users start with PRO trial
-        subscriptionPlan: 'trial',
-        trialEndsAt,
-        onboardingCompleted: true, // Skip choose-plan page, they already have trial
-        // Terms acceptance from registration form
-        termsAcceptedVersion: LEGAL_VERSIONS.terms,
-        termsAcceptedAt: now,
-        privacyAcceptedVersion: LEGAL_VERSIONS.privacy,
-        privacyAcceptedAt: now,
-      },
-    })
-
-    // Generate verification token and hash it for storage
+    // Generate verification token and hash it for storage (before transaction so we have it for email)
     const token = randomBytes(32).toString('hex')
     const tokenHash = createHash('sha256').update(token).digest('hex')
 
-    // Create verification token (expires in 24 hours) - store hash only
-    await prisma.verificationToken.create({
-      data: {
-        token: tokenHash,
-        type: 'account_verification',
-        userId: user.id,
-        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours
-      },
+    // Create user and verification token atomically in a transaction
+    const now = new Date()
+    const user = await prisma.$transaction(async (tx) => {
+      const createdUser = await tx.user.create({
+        data: {
+          username: validation.data.username,
+          email: validation.data.email,
+          password: hashedPassword,
+          authProvider: 'credentials',
+          // New users start with PRO trial
+          subscriptionPlan: 'trial',
+          trialEndsAt,
+          onboardingCompleted: true, // Skip choose-plan page, they already have trial
+          // Terms acceptance from registration form
+          termsAcceptedVersion: LEGAL_VERSIONS.terms,
+          termsAcceptedAt: now,
+          privacyAcceptedVersion: LEGAL_VERSIONS.privacy,
+          privacyAcceptedAt: now,
+        },
+      })
+
+      // Create verification token (expires in 24 hours) - store hash only
+      await tx.verificationToken.create({
+        data: {
+          token: tokenHash,
+          type: 'account_verification',
+          userId: createdUser.id,
+          expiresAt: new Date(Date.now() + TOKEN_EXPIRY_MS),
+        },
+      })
+
+      return createdUser
     })
 
-    // Send verification email
+    // Send verification email only after transaction succeeds
     const emailSent = await sendAccountVerificationEmail(validation.data.email, token, validation.data.username)
 
     if (!emailSent) {
@@ -296,7 +301,7 @@ export async function resendVerificationEmail(email: string, recaptchaToken: str
         token: tokenHash,
         type: 'account_verification',
         userId: user.id,
-        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+        expiresAt: new Date(Date.now() + TOKEN_EXPIRY_MS),
       },
     })
 

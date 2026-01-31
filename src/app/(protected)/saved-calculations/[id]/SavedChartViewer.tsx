@@ -23,7 +23,7 @@ import { Save, Loader2 } from 'lucide-react'
 import { ExportPDFDialog, ExportTransitPDFDialog, ExportSynastryPDFDialog } from '@/components/pdf'
 import { DateTimeLocationSelector } from '@/components/ui/DateTimeLocationSelector'
 import type { LocationFormValues } from '@/components/SubjectLocationFields'
-import { useDateFormat, useTimeFormat } from '@/hooks/useDateFormat'
+import { useChartPreferences } from '@/hooks/useChartPreferences'
 import { formatDisplayDate, formatDisplayTime } from '@/lib/utils/date'
 import { toast } from 'sonner'
 import { clientLogger } from '@/lib/logging/client'
@@ -41,8 +41,7 @@ export function SavedChartViewer({ chartName, chartParams, savedChartId, initial
   const [result, setResult] = useState<SavedChartDataResult | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [notes, setNotes] = useState(initialNotes)
-  const dateFormat = useDateFormat()
-  const timeFormat = useTimeFormat()
+  const { dateFormat, timeFormat } = useChartPreferences()
 
   // State for modified chart params (used for time navigator)
   const [currentParams, setCurrentParams] = useState<SavedChartParams>(chartParams)
@@ -230,7 +229,7 @@ export function SavedChartViewer({ chartName, chartParams, savedChartId, initial
     return (
       <div className="h-full w-full space-y-4">
         <Skeleton className="h-10 w-1/3" />
-        <Skeleton className="h-[500px] w-full" />
+        <Skeleton className="h-[600px] w-full" />
       </div>
     )
   }

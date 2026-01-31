@@ -182,7 +182,8 @@ export async function getChartPreferences(): Promise<ChartPreferencesData | null
 
 function mapLegacyHouseSystem(value: string | null): string {
   if (!value) {
-    throw new Error('house_system preference is required but not set in database')
+    logger.error('Missing required preference: house_system is null or empty', { field: 'house_system' })
+    throw new Error('Impossibile caricare le preferenze. Riprova più tardi.')
   }
 
   // Map legacy full names to codes
@@ -214,7 +215,8 @@ function mapLegacyHouseSystem(value: string | null): string {
 
 function mapLegacyPerspective(value: string | null): string {
   if (!value) {
-    throw new Error('perspective_type preference is required but not set in database')
+    logger.error('Missing required preference: perspective_type is null or empty', { field: 'perspective_type' })
+    throw new Error('Impossibile caricare le preferenze. Riprova più tardi.')
   }
 
   if (value === 'Geocentric') return 'Apparent Geocentric'
@@ -222,14 +224,17 @@ function mapLegacyPerspective(value: string | null): string {
 }
 
 import { omitKeys } from '@/lib/utils/object'
+import { safeValidateChartPreferencesUpdate } from '@/lib/validation/chart-preferences'
 
 /**
  * Update or create chart preferences for current user
  *
  * @param data - Partial preferences data to update
  * @throws Error if user is not authenticated
+ * @throws Error if validation fails with details about invalid fields
  *
  * @remarks
+ * - Validates all input data with Zod before processing
  * - Uses upsert to create if not exists or update if exists
  * - Serializes complex fields (active_points, active_aspects) to JSON
  * - Revalidates all chart-related pages
@@ -238,7 +243,7 @@ import { omitKeys } from '@/lib/utils/object'
  * ```ts
  * await updateChartPreferences({
  *   theme: 'dark',
- *   language: 'EN',
+ *   date_format: 'EU',
  * })
  * ```
  */
@@ -247,10 +252,21 @@ export async function updateChartPreferences(data: Partial<ChartPreferencesData>
     const session = await getSession()
     if (!session) throw new Error('Unauthorized')
 
-    const { active_points, active_aspects, custom_distribution_weights } = data
+    // Validate input data with Zod schema
+    const validationResult = safeValidateChartPreferencesUpdate(data)
+    if (!validationResult.success) {
+      const errorDetails = validationResult.error.issues
+        .map((issue) => `${issue.path.join('.')}: ${issue.message}`)
+        .join(', ')
+      logger.warn('Preferences validation failed', { errors: errorDetails })
+      throw new Error('Impossibile salvare le preferenze. Riprova più tardi.')
+    }
+    const validatedData = validationResult.data
+
+    const { active_points, active_aspects, custom_distribution_weights } = validatedData
 
     // Only omit fields that need JSON.stringify - everything else passes through via ...rest
-    const rest = omitKeys(data, ['active_points', 'active_aspects', 'custom_distribution_weights'] as const)
+    const rest = omitKeys(validatedData, ['active_points', 'active_aspects', 'custom_distribution_weights'] as const)
 
     const customWeightsString = custom_distribution_weights ? JSON.stringify(custom_distribution_weights) : undefined
 
@@ -261,7 +277,8 @@ export async function updateChartPreferences(data: Partial<ChartPreferencesData>
     })
 
     if (!userExists) {
-      throw new Error('User not found')
+      logger.warn('Preferences update attempted for non-existent user', { userId: session.userId })
+      throw new Error('Impossibile salvare le preferenze. Riprova più tardi.')
     }
 
     await prisma.chartPreferences.upsert({
@@ -289,11 +306,10 @@ export async function updateChartPreferences(data: Partial<ChartPreferencesData>
     revalidatePath('/subjects/[id]/synastry')
   } catch (error) {
     logger.error('Failed to update chart preferences', error)
-    console.error('Full error details:', error)
     if (error instanceof Error && error.message === 'Unauthorized') {
       throw error
     }
-    // Re-throw with original error message for debugging
-    throw new Error(`Failed to update preferences: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    // Throw generic user-facing error; technical details are in the logs
+    throw new Error('Impossibile salvare le preferenze. Riprova più tardi.')
   }
 }

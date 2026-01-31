@@ -53,16 +53,17 @@ import { prisma } from '@/lib/db/prisma'
 import { getSession } from '@/lib/security/session'
 import { astrologerApi } from '@/lib/api/astrologer'
 import type { ChartData, SubjectModel } from '@/types/astrology'
-import { AI_CACHE_ENABLED, AI_CACHE_TTL_MS } from '@/lib/ai/config'
+import { AI_CACHE_ENABLED, AI_CACHE_TTL_MS, AI_MODEL } from '@/lib/ai/config'
 import { logger } from '@/lib/logging/server'
 import { aiInterpretRequestSchema, validateBody, formatValidationErrors } from '@/lib/validation/api'
 import { checkRateLimit, rateLimitExceededResponse, RATE_LIMITS } from '@/lib/security/rate-limit'
 import { buildAIInterpretationUserPrompt, DEFAULT_AI_SYSTEM_PROMPT } from '@/lib/ai/prompts'
 import { canGenerateAI, getPlanLimits } from '@/lib/subscription/plan-limits'
+import { CACHE_CONTROL } from '@/lib/security/cache-control'
 
 /**
  * OpenRouter client configured as OpenAI-compatible provider.
- * Uses DeepSeek v3.2 model for astrological interpretations.
+ * Uses AI_MODEL from config (configurable via environment variable).
  *
  * @see https://openrouter.ai/docs
  */
@@ -549,7 +550,7 @@ export async function POST(request: NextRequest) {
     const effectiveSystemPrompt = customPromptsEnabled && systemPrompt ? systemPrompt : DEFAULT_AI_SYSTEM_PROMPT
 
     const result = streamText({
-      model: openrouter('deepseek/deepseek-v3.2'),
+      model: openrouter(AI_MODEL),
       system: effectiveSystemPrompt,
       prompt: userPrompt,
 
@@ -587,6 +588,8 @@ export async function POST(request: NextRequest) {
     const headers = new Headers(streamResponse.headers)
     headers.set('X-AI-Context', Buffer.from(aiContext).toString('base64'))
     headers.set('X-AI-User-Prompt', Buffer.from(userPrompt).toString('base64'))
+    // Streaming AI responses should never be cached
+    headers.set('Cache-Control', CACHE_CONTROL.noStore)
 
     return new Response(streamResponse.body, {
       status: streamResponse.status,

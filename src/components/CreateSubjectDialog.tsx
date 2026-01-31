@@ -3,7 +3,7 @@
 import type { KeyboardEventHandler } from 'react'
 import { useRef } from 'react'
 import type { UseFormReturn } from 'react-hook-form'
-import type { CreateSubjectInput } from '@/types/subjects'
+import type { CreateSubjectFormInput, CreateSubjectInput } from '@/types/subjects'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -23,7 +23,7 @@ interface CreateSubjectDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
   error: string | null
-  form: UseFormReturn<CreateSubjectInput>
+  form: UseFormReturn<CreateSubjectFormInput, unknown, CreateSubjectInput>
   isCreating: boolean
   onSubmit: () => void
 }
@@ -155,7 +155,7 @@ export function CreateSubjectDialog({
                     onChange={(e) => {
                       const value = e.target.value
                       if (!value) {
-                        form.setValue('birthTime', undefined)
+                        form.setValue('birthTime', '')
                       } else {
                         const parts = value.split(':')
                         while (parts.length < 3) parts.push('00')

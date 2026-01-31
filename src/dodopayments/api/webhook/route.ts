@@ -17,6 +17,7 @@ import { verifyWebhook, type DodoWebhookPayload } from '@/dodopayments/lib/serve
 import { updateUserSubscription, linkDodoCustomer } from '@/dodopayments/lib/subscription'
 import { mapDodoStatusToPlan, type DodoSubscriptionStatus } from '@/dodopayments/lib/config'
 import { logger } from '@/lib/logging/server'
+import { CACHE_CONTROL, cacheControlHeaders } from '@/lib/security/cache-control'
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
@@ -27,7 +28,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     if (!webhookId || !webhookSignature || !webhookTimestamp) {
       logger.error('[DodoPayments Webhook] Missing required headers')
-      return NextResponse.json({ error: 'Missing webhook headers' }, { status: 400 })
+      return NextResponse.json(
+        { error: 'Missing webhook headers' },
+        { status: 400, headers: cacheControlHeaders(CACHE_CONTROL.noStore) },
+      )
     }
 
     const rawBody = await request.text()
@@ -42,7 +46,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       })
     } catch (error) {
       logger.error('[DodoPayments Webhook] Signature verification failed:', error)
-      return NextResponse.json({ error: 'Invalid signature' }, { status: 401 })
+      return NextResponse.json(
+        { error: 'Invalid signature' },
+        { status: 401, headers: cacheControlHeaders(CACHE_CONTROL.noStore) },
+      )
     }
 
     const eventType = event.type
@@ -54,7 +61,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     if (!isSubscriptionEvent) {
       logger.info(`[DodoPayments Webhook] Ignoring non-subscription event: ${eventType}`)
-      return NextResponse.json({ received: true })
+      return NextResponse.json({ received: true }, { headers: cacheControlHeaders(CACHE_CONTROL.noStore) })
     }
 
     // Extract subscription data from event.data
@@ -68,7 +75,10 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     if (!subscriptionId || !customer) {
       logger.error('[DodoPayments Webhook] Missing subscription or customer data')
-      return NextResponse.json({ error: 'Invalid payload' }, { status: 400 })
+      return NextResponse.json(
+        { error: 'Invalid payload' },
+        { status: 400, headers: cacheControlHeaders(CACHE_CONTROL.noStore) },
+      )
     }
 
     const customerId = customer.customer_id
@@ -120,9 +130,13 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         logger.info(`[DodoPayments Webhook] Unhandled event type: ${eventType}`)
     }
 
-    return NextResponse.json({ received: true })
+    // Webhook responses should never be cached
+    return NextResponse.json({ received: true }, { headers: cacheControlHeaders(CACHE_CONTROL.noStore) })
   } catch (error) {
     logger.error('[DodoPayments Webhook] Processing failed:', error)
-    return NextResponse.json({ error: 'Webhook processing failed' }, { status: 500 })
+    return NextResponse.json(
+      { error: 'Webhook processing failed' },
+      { status: 500, headers: cacheControlHeaders(CACHE_CONTROL.noStore) },
+    )
   }
 }

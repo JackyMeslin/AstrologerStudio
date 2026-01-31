@@ -1,4 +1,4 @@
-import { useId } from 'react'
+import { useId, memo } from 'react'
 import { ChevronDown } from 'lucide-react'
 
 import type { AstrologicalSubject } from '@/types/birthChart'
@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { cn } from '@/lib/utils/cn'
 import { useUIPreferences } from '@/stores/uiPreferences'
-import { useDateFormat, useTimeFormat } from '@/hooks/useDateFormat'
+import { useChartPreferences } from '@/hooks/useChartPreferences'
 import { formatDisplayDate, formatDisplayTime } from '@/lib/utils/date'
 
 type Props = {
@@ -18,7 +18,7 @@ type Props = {
   title?: string
 }
 
-export default function SubjectDetailsCard({
+const SubjectDetailsCard = memo(function SubjectDetailsCard({
   subject,
   className,
   dateLabel,
@@ -28,8 +28,7 @@ export default function SubjectDetailsCard({
   const contentId = useId()
   const collapsed = useUIPreferences((state) => state.collapsed[id] ?? false)
   const toggleCollapsed = useUIPreferences((state) => state.toggleCollapsed)
-  const dateFormat = useDateFormat()
-  const timeFormat = useTimeFormat()
+  const { dateFormat, timeFormat } = useChartPreferences()
 
   // Normalize data access
   // Check if 'subject' property exists and is an object (ChartData structure)
@@ -164,4 +163,6 @@ export default function SubjectDetailsCard({
       </CardContent>
     </Card>
   )
-}
+})
+
+export default SubjectDetailsCard

@@ -46,6 +46,19 @@ export class NotFoundError extends Error {
 }
 
 /**
+ * Error thrown when input validation fails
+ */
+export class ValidationError extends Error {
+  public readonly errors: string[]
+
+  constructor(message: string, errors: string[] = []) {
+    super(message)
+    this.name = 'ValidationError'
+    this.errors = errors
+  }
+}
+
+/**
  * Wrapper for Server Actions that require authentication
  * Eliminates repetitive session checking code
  *

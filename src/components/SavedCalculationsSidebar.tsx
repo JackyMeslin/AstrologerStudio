@@ -24,17 +24,23 @@ export function SavedCalculationsSidebar() {
   const router = useRouter()
 
   useEffect(() => {
-    fetchSavedCharts()
+    const controller = new AbortController()
+    fetchSavedCharts(controller.signal)
+    return () => {
+      controller.abort()
+    }
   }, [])
 
-  const fetchSavedCharts = async () => {
+  const fetchSavedCharts = async (signal?: AbortSignal) => {
     try {
-      const res = await fetch('/api/saved-charts')
+      const res = await fetch('/api/saved-charts', { signal })
       if (res.ok) {
         const data = await res.json()
         setSavedCharts(data)
       }
     } catch (error) {
+      // Ignore abort errors - component was unmounted
+      if (error instanceof Error && error.name === 'AbortError') return
       clientLogger.error('Error fetching saved charts:', error)
     } finally {
       setLoading(false)
@@ -124,6 +130,7 @@ export function SavedCalculationsSidebar() {
                             size="icon"
                             className="h-8 w-8 text-muted-foreground hover:text-destructive"
                             onClick={(e) => handleDelete(chart.id, e)}
+                            aria-label="Delete chart"
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>

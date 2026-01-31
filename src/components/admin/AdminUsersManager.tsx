@@ -16,6 +16,7 @@ import {
 } from '@/components/ui/dialog'
 import { Plus, Loader2, Shield, ShieldCheck } from 'lucide-react'
 import { toast } from 'sonner'
+import { MIN_PASSWORD_LENGTH } from '@/lib/validation/password'
 
 export function AdminUsersManager() {
   const [isOpen, setIsOpen] = useState(false)
@@ -31,8 +32,8 @@ export function AdminUsersManager() {
       return
     }
 
-    if (password.length < 8) {
-      toast.error('Password must be at least 8 characters')
+    if (password.length < MIN_PASSWORD_LENGTH) {
+      toast.error(`Password must be at least ${MIN_PASSWORD_LENGTH} characters`)
       return
     }
 

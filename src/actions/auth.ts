@@ -21,6 +21,7 @@ import {
   clearFailedLogins,
   RATE_LIMITS,
 } from '@/lib/security/rate-limit'
+import { validatePassword } from '@/lib/validation/password'
 
 /**
  * Login credentials validation schema
@@ -341,12 +342,9 @@ export async function validateResetToken(token: string): Promise<{ valid: boolea
  */
 export async function resetPassword(token: string, newPassword: string): Promise<ActionResult> {
   // Validate password
-  // Validate password
-  const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/
-  if (!passwordRegex.test(newPassword)) {
-    return {
-      error: 'Password must be at least 8 characters and include uppercase, lowercase, number, and special character.',
-    }
+  const passwordValidation = validatePassword(newPassword)
+  if (!passwordValidation.valid) {
+    return { error: passwordValidation.error }
   }
 
   try {
@@ -407,12 +405,9 @@ export async function resetPassword(token: string, newPassword: string): Promise
 export async function changePassword(currentPassword: string, newPassword: string): Promise<ActionResult> {
   return withAuth(async (session) => {
     // Validate new password
-    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/
-    if (!passwordRegex.test(newPassword)) {
-      return {
-        error:
-          'New password must be at least 8 characters and include uppercase, lowercase, number, and special character.',
-      }
+    const passwordValidation = validatePassword(newPassword)
+    if (!passwordValidation.valid) {
+      return { error: passwordValidation.error }
     }
 
     try {
@@ -465,12 +460,9 @@ export async function changePassword(currentPassword: string, newPassword: strin
 export async function createPassword(newPassword: string): Promise<ActionResult> {
   return withAuth(async (session) => {
     // Validate password
-    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/
-    if (!passwordRegex.test(newPassword)) {
-      return {
-        error:
-          'Password must be at least 8 characters and include uppercase, lowercase, number, and special character.',
-      }
+    const passwordValidation = validatePassword(newPassword)
+    if (!passwordValidation.valid) {
+      return { error: passwordValidation.error }
     }
 
     try {

@@ -1,6 +1,8 @@
 'use server'
 
 import { prisma } from '@/lib/db/prisma'
+import { logger } from '@/lib/logging/server'
+import { withAdminAuth } from '@/lib/security/admin-auth'
 import { getSession } from '@/lib/security/session'
 
 /**
@@ -48,19 +50,22 @@ export async function trackPdfExport(chartType: PDFChartType): Promise<ActionRes
 
     return { success: true }
   } catch (error) {
-    console.error('Failed to track PDF export:', error)
+    logger.warn('Failed to track PDF export', error)
     // Don't fail the user's export just because tracking failed
     return { success: true }
   }
 }
 
 /**
- * Get total PDF exports for a user (used in admin)
+ * Get total PDF exports for a user (admin only)
+ * Protected: requires admin authentication
  */
 export async function getUserPdfExportsTotal(userId: string): Promise<number> {
-  const result = await prisma.pDFExportUsage.aggregate({
-    where: { userId },
-    _sum: { count: true },
+  return withAdminAuth(async () => {
+    const result = await prisma.pDFExportUsage.aggregate({
+      where: { userId },
+      _sum: { count: true },
+    })
+    return result._sum.count || 0
   })
-  return result._sum.count || 0
 }

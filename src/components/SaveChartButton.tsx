@@ -52,23 +52,28 @@ export function SaveChartButton({ chartParams, chartType, defaultName = '', note
         .map((t) => t.trim())
         .filter(Boolean)
 
+      const payload = {
+        name,
+        type: chartType,
+        chartData: chartParams,
+        notes,
+        tags: tagsArray.length > 0 ? tagsArray : undefined,
+      }
+
+      clientLogger.debug('Saving chart with payload:', payload)
+
       const res = await fetch('/api/saved-charts', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          name,
-          type: chartType,
-          chartData: chartParams,
-          notes,
-          tags: tagsArray.length > 0 ? tagsArray : undefined,
-        }),
+        body: JSON.stringify(payload),
       })
 
       if (!res.ok) {
         const text = await res.text()
-        clientLogger.error('Save chart failed:', { status: res.status, body: text })
+        clientLogger.error(`Save chart failed: Status ${res.status}`)
+        clientLogger.error('Response body:', text)
 
         let errorData
         try {

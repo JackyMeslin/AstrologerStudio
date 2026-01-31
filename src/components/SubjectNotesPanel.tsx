@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
@@ -55,8 +55,30 @@ export function SubjectNotesPanel({ subjectId, onGenerateAI, chartId }: SubjectN
   const { request: requestWakeLock, release: releaseWakeLock } = useWakeLock()
   const isRestoredRef = useRef(false)
 
+  const loadNotes = useCallback(
+    async (signal?: AbortSignal) => {
+      try {
+        const res = await fetch(`/api/subjects/${subjectId}/notes`, { signal })
+        if (res.ok) {
+          const data = await res.json()
+          setNotes(data.notes || '')
+        }
+      } catch (error) {
+        // Ignore abort errors - component was unmounted
+        if (error instanceof Error && error.name === 'AbortError') return
+        clientLogger.error('Error loading notes:', error)
+        toast.error('Failed to load notes')
+      } finally {
+        setIsLoading(false)
+      }
+    },
+    [subjectId],
+  )
+
   // Load notes from API and check for cached interpretation
   useEffect(() => {
+    const controller = new AbortController()
+
     const loadData = async () => {
       // First try to restore from IndexedDB cache
       if (chartId && !isRestoredRef.current) {
@@ -77,27 +99,15 @@ export function SubjectNotesPanel({ subjectId, onGenerateAI, chartId }: SubjectN
       }
 
       // Load from API
-      await loadNotes()
+      await loadNotes(controller.signal)
     }
 
     loadData()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [subjectId, chartId])
 
-  const loadNotes = async () => {
-    try {
-      const res = await fetch(`/api/subjects/${subjectId}/notes`)
-      if (res.ok) {
-        const data = await res.json()
-        setNotes(data.notes || '')
-      }
-    } catch (error) {
-      clientLogger.error('Error loading notes:', error)
-      toast.error('Failed to load notes')
-    } finally {
-      setIsLoading(false)
+    return () => {
+      controller.abort()
     }
-  }
+  }, [subjectId, chartId, loadNotes])
 
   const handleSave = async () => {
     setIsSaving(true)

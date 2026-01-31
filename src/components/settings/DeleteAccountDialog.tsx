@@ -11,7 +11,7 @@
  * @module components/settings/DeleteAccountDialog
  */
 
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -39,11 +39,21 @@ export function DeleteAccountDialog() {
   const [subscriptionAcknowledged, setSubscriptionAcknowledged] = useState(false)
   const [confirmText, setConfirmText] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const resetTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Get subscription status
   const billingEnabled = isDodoPaymentsEnabled()
   const { data: subscription, isLoading: isSubscriptionLoading } = useSubscription()
   const hasActiveSubscription = billingEnabled && subscription?.plan && subscription.plan !== 'free'
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (resetTimeoutRef.current) {
+        clearTimeout(resetTimeoutRef.current)
+      }
+    }
+  }, [])
 
   const resetDialog = () => {
     setStep('warning')
@@ -55,7 +65,7 @@ export function DeleteAccountDialog() {
   const handleOpenChange = (newOpen: boolean) => {
     setOpen(newOpen)
     if (!newOpen) {
-      setTimeout(resetDialog, 200)
+      resetTimeoutRef.current = setTimeout(resetDialog, 200)
     }
   }
 

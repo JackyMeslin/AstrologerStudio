@@ -3,11 +3,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useRouter, usePathname, useSearchParams } from 'next/navigation'
 import { addDays, addMonths, addYears, startOfToday } from 'date-fns'
+import dynamic from 'next/dynamic'
 import type { ColumnDef } from '@/components/data-table/DataTable'
 import { DataTable } from '@/components/data-table/DataTable'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
+import { ChartLoadingSkeleton } from '@/components/ui/chart-loading-skeleton'
 import {
   ALL_PLANET_KEYS,
   toColumnKey,
@@ -19,11 +20,18 @@ import { useEphemerisData } from '@/hooks/useEphemerisData'
 import { mapToTable, mapToChart } from '@/hooks/useEphemerisView'
 import { PlanetLegend } from '@/components/ephemeris/PlanetLegend'
 import { ChartTooltip } from '@/components/ephemeris/ChartTooltip'
-// RefreshCw icon commented out for now - see FIXME below
-// import { RefreshCw } from 'lucide-react'
 import { TimeRangeSelector, TimeRange } from '@/components/TimeRangeSelector'
 import type { ChartPreferencesData } from '@/actions/preferences'
 import { formatPlanetName } from '@/lib/astrology/planet-formatting'
+
+// Dynamically import the chart component to avoid loading recharts in the initial bundle
+const EphemerisChartContent = dynamic(
+  () => import('@/components/ephemeris/EphemerisChartContent').then((mod) => mod.EphemerisChartContent),
+  {
+    ssr: false,
+    loading: () => <ChartLoadingSkeleton height={400} />,
+  },
+)
 
 interface EphemerisViewProps {
   preferences: ChartPreferencesData | null
@@ -89,7 +97,6 @@ export function EphemerisView({ preferences, currentTimeRange }: EphemerisViewPr
     isLoading,
     error,
     progress,
-    // refetch, - commented out as the refresh button is hidden (see FIXME below)
   } = useEphemerisData({
     startDate,
     endDate,
@@ -215,12 +222,6 @@ export function EphemerisView({ preferences, currentTimeRange }: EphemerisViewPr
           </p>
         </div>
         <div className="flex items-center gap-2">
-          {/* FIXME: Refresh button hidden for now
-          <Button variant="outline" size="sm" onClick={refetch} disabled={isLoading} className="gap-2">
-            <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
-            Refresh
-          </Button>
-          */}
           <TimeRangeSelector value={timeRange} onChange={handleRangeChange} />
         </div>
       </div>
@@ -232,14 +233,14 @@ export function EphemerisView({ preferences, currentTimeRange }: EphemerisViewPr
       )}
 
       {isLoading && data.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-8 gap-3">
+        <div className="flex flex-col items-center justify-center py-8 gap-3" role="status" aria-live="polite">
           <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-primary" />
           <p className="text-sm text-muted-foreground">Starting to load ephemeris data...</p>
         </div>
       ) : (
         <>
           {isLoading && progress.total > 0 && (
-            <div className="flex items-center justify-center gap-3 py-2 px-4 bg-muted/50 rounded-md">
+            <div className="flex items-center justify-center gap-3 py-2 px-4 bg-muted/50 rounded-md" role="status" aria-live="polite">
               <div className="h-5 w-5 animate-spin rounded-full border-b-2 border-primary" />
               <p className="text-sm font-medium">
                 Loading: {progress.current}/{progress.total} days
@@ -318,42 +319,13 @@ export function EphemerisView({ preferences, currentTimeRange }: EphemerisViewPr
                       <PlanetLegend planetKeys={planetKeys} enabled={enabled} setEnabled={setEnabled} colors={colors} />
                     ) : null}
                     <div className="h-[400px] w-full">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
-                          <defs>
-                            {planetKeys.map((planet) => (
-                              <linearGradient key={planet} id={`color-${planet}`} x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="5%" stopColor={colors[planet].stroke} stopOpacity={0.3} />
-                                <stop offset="95%" stopColor={colors[planet].stroke} stopOpacity={0.05} />
-                              </linearGradient>
-                            ))}
-                          </defs>
-                          <CartesianGrid strokeDasharray="3 3" className="stroke-border/60" />
-                          <XAxis
-                            dataKey="date"
-                            tickFormatter={(date) => new Date(date).toLocaleDateString()}
-                            className="text-xs"
-                          />
-                          <YAxis domain={[0, 360]} tickFormatter={(value) => `${value}°`} className="text-xs" />
-                          <Tooltip content={<CustomTooltip />} />
-
-                          {planetKeys
-                            .filter((planet) => enabled[planet])
-                            .map((planet) => (
-                              <Area
-                                key={planet}
-                                type="monotone"
-                                dataKey={planet}
-                                stroke={colors[planet].stroke}
-                                fillOpacity={1}
-                                fill={`url(#color-${planet})`}
-                                strokeWidth={1.5}
-                                dot={false}
-                                isAnimationActive={false}
-                              />
-                            ))}
-                        </AreaChart>
-                      </ResponsiveContainer>
+                      <EphemerisChartContent
+                        chartData={chartData}
+                        planetKeys={planetKeys}
+                        enabled={enabled}
+                        colors={colors}
+                        CustomTooltip={CustomTooltip}
+                      />
                     </div>
                   </div>
                 )}

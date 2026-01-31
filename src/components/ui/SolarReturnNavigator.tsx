@@ -117,7 +117,7 @@ export function SolarReturnNavigator({
                 variant="outline"
                 size="icon"
                 onClick={() => handleStep('backward')}
-                title="Previous Year"
+                aria-label="Previous Year"
                 disabled={isLoading}
               >
                 <ChevronLeft className="h-4 w-4" />
@@ -127,13 +127,19 @@ export function SolarReturnNavigator({
                 <div className="flex items-center border rounded-md px-2 sm:px-3 h-9 bg-background">
                   <span className="font-medium">{form.watch('year')}</span>
                 </div>
-                <Input
-                  type="number"
-                  min={1}
-                  value={stepAmount}
-                  onChange={(e) => setStepAmount(Math.max(1, parseInt(e.target.value) || 1))}
-                  className="w-16 h-9 text-center"
-                />
+                <div className="flex items-center gap-1">
+                  <label htmlFor="solar-return-step-amount" className="sr-only">
+                    Step amount
+                  </label>
+                  <Input
+                    id="solar-return-step-amount"
+                    type="number"
+                    min={1}
+                    value={stepAmount}
+                    onChange={(e) => setStepAmount(Math.max(1, parseInt(e.target.value) || 1))}
+                    className="w-16 h-9 text-center"
+                  />
+                </div>
               </div>
 
               <Button
@@ -141,7 +147,7 @@ export function SolarReturnNavigator({
                 variant="outline"
                 size="icon"
                 onClick={() => handleStep('forward')}
-                title="Next Year"
+                aria-label="Next Year"
                 disabled={isLoading}
               >
                 <ChevronRight className="h-4 w-4" />
@@ -169,7 +175,7 @@ export function SolarReturnNavigator({
                   variant="ghost"
                   size="icon"
                   onClick={() => setIsExpanded(!isExpanded)}
-                  title={isExpanded ? 'Collapse' : 'Expand'}
+                  aria-label={isExpanded ? 'Collapse' : 'Expand'}
                 >
                   <ChevronLeft className={`h-4 w-4 transition-transform ${isExpanded ? 'rotate-90' : '-rotate-90'}`} />
                 </Button>

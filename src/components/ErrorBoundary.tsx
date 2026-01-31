@@ -1,6 +1,7 @@
 import { Component, type ReactNode } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { clientLogger } from '@/lib/logging/client'
 
 interface Props {
   /** Child components to protect with error boundary */
@@ -16,6 +17,17 @@ interface State {
   error?: Error
 }
 
+/** Generic error message shown to users in production */
+export const PRODUCTION_ERROR_MESSAGE = 'Si è verificato un errore imprevisto'
+
+/**
+ * Check if the app is running in production mode.
+ * Exported for testing purposes.
+ */
+export function isProductionMode(): boolean {
+  return process.env.NODE_ENV === 'production'
+}
+
 /**
  * Error Boundary component to catch React errors gracefully
  *
@@ -25,6 +37,7 @@ interface State {
  * - Allows page reload to recover
  * - Logs errors to console for debugging
  * - Supports custom fallback UI
+ * - In production, hides raw error details and shows a generic message
  *
  * @example
  * ```tsx
@@ -33,6 +46,7 @@ interface State {
  * </ErrorBoundary>
  * ```
  */
+
 export class ErrorBoundary extends Component<Props, State> {
   constructor(props: Props) {
     super(props)
@@ -47,10 +61,22 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   /**
+   * Get the error message to display.
+   * In production, shows a generic message to avoid exposing implementation details.
+   * In development, shows the actual error message for debugging.
+   */
+  private getDisplayMessage(): string {
+    if (isProductionMode()) {
+      return PRODUCTION_ERROR_MESSAGE
+    }
+    return this.state.error?.message || PRODUCTION_ERROR_MESSAGE
+  }
+
+  /**
    * Log error details for debugging
    */
   override componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    console.error('ErrorBoundary caught an error:', error, errorInfo)
+    clientLogger.error('ErrorBoundary caught an error:', error, errorInfo)
     // TODO: Send to error tracking service (e.g., Sentry)
   }
 
@@ -68,11 +94,9 @@ export class ErrorBoundary extends Component<Props, State> {
               <CardDescription>An unexpected error occurred</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              {this.state.error && (
-                <div className="rounded-md bg-muted p-3 text-sm">
-                  <p className="font-mono">{this.state.error.message}</p>
-                </div>
-              )}
+              <div className="rounded-md bg-muted p-3 text-sm">
+                <p className="font-mono">{this.getDisplayMessage()}</p>
+              </div>
               <Button onClick={() => window.location.reload()} className="w-full">
                 Reload Page
               </Button>

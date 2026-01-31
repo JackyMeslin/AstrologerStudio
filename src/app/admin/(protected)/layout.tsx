@@ -1,8 +1,7 @@
 import { ReactNode } from 'react'
 import { getAdminSession } from '@/lib/security/admin-session'
 import { redirect } from 'next/navigation'
-import { AdminSidebar } from '@/components/admin/AdminSidebar'
-import { AdminHeader } from '@/components/admin/AdminHeader'
+import { AdminLayoutClient } from '@/components/admin/AdminLayoutClient'
 
 /**
  * Protected layout for authenticated admin pages
@@ -16,12 +15,10 @@ export default async function ProtectedAdminLayout({ children }: { children: Rea
   }
 
   return (
-    <div className="min-h-screen bg-slate-900 flex">
-      <AdminSidebar role={session.role} />
-      <div className="flex-1 flex flex-col min-w-0">
-        <AdminHeader username={session.username} role={session.role} />
-        <main className="flex-1 p-6 overflow-auto">{children}</main>
-      </div>
+    <div className="min-h-screen bg-slate-900">
+      <AdminLayoutClient username={session.username} role={session.role}>
+        {children}
+      </AdminLayoutClient>
     </div>
   )
 }

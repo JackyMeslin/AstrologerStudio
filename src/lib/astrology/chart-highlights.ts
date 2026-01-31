@@ -87,9 +87,6 @@ const PLANET_PRIORITY: Record<string, number> = {
 /** Major (Ptolemaic) aspects - these are given priority */
 export const MAJOR_ASPECTS = ['conjunction', 'opposition', 'trine', 'square', 'sextile']
 
-/** Minor aspects - these are deprioritized */
-export const MINOR_ASPECTS = ['quincunx', 'semisquare', 'sesquiquadrate', 'semisextile', 'quintile', 'biquintile']
-
 /** Aspect priority scores (higher = more important) */
 const ASPECT_PRIORITY: Record<string, number> = {
   // Major aspects (Ptolemaic) - high priority
@@ -166,12 +163,6 @@ export function scoreAspect(aspect: Aspect): number {
  * These are considered "core" planets in traditional astrology.
  */
 export const PERSONAL_PLANETS = ['Sun', 'Moon', 'Mercury', 'Venus', 'Mars', 'Jupiter', 'Saturn']
-
-/**
- * Extended traditional points including angles.
- * Used to filter out minor bodies (Nodes, Lilith, etc.) when finding key aspects.
- */
-export const TRADITIONAL_POINTS = [...PERSONAL_PLANETS, 'Ascendant', 'Midheaven']
 
 /**
  * Classical planetary rulerships (traditional rulers)

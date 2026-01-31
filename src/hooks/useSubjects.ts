@@ -5,17 +5,27 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { fetchRandomSubjects, deleteSubject, updateSubject, createSubject, importSubjects } from '@/lib/api/subjects'
-import type { Subject, UpdateSubjectInput, CreateSubjectInput } from '@/types/subjects'
+import type {
+  Subject,
+  UpdateSubjectFormInput,
+  UpdateSubjectInput,
+  CreateSubjectFormInput,
+  CreateSubjectInput,
+} from '@/types/subjects'
 import { updateSubjectSchema, createSubjectSchema } from '@/lib/validation/subject'
+import { queryKeys } from '@/lib/query-keys'
+import { getErrorMessage } from '@/lib/utils/error'
+import { STALE_TIME } from '@/lib/config/query'
 
 export function useSubjects() {
   const queryClient = useQueryClient()
+  const subjectsQueryKey = queryKeys.subjects.list()
 
   // Data fetching
   const query = useQuery({
-    queryKey: ['subjects', { count: 50 }],
+    queryKey: subjectsQueryKey,
     queryFn: ({ signal }) => fetchRandomSubjects(50, signal),
-    staleTime: 1000 * 60, // 1 minuto
+    staleTime: STALE_TIME.SHORT, // 1 minute
     retry: 2,
   })
 
@@ -29,8 +39,8 @@ export function useSubjects() {
   const [subjectToEdit, setSubjectToEdit] = useState<Subject | null>(null)
   const [editError, setEditError] = useState<string | null>(null)
 
-  // Edit form
-  const editForm = useForm<UpdateSubjectInput>({
+  // Edit form - uses input type for form fields, output type for validated data
+  const editForm = useForm<UpdateSubjectFormInput, unknown, UpdateSubjectInput>({
     defaultValues: {
       id: '',
       name: '',
@@ -45,16 +55,15 @@ export function useSubjects() {
       tags: null,
     },
     mode: 'onSubmit',
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    resolver: zodResolver(updateSubjectSchema as any),
+    resolver: zodResolver(updateSubjectSchema),
   })
 
   // Create dialog state
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
   const [createError, setCreateError] = useState<string | null>(null)
 
-  // Create form
-  const createForm = useForm<CreateSubjectInput>({
+  // Create form - uses input type for form fields, output type for validated data
+  const createForm = useForm<CreateSubjectFormInput, unknown, CreateSubjectInput>({
     defaultValues: {
       name: '',
       city: '',
@@ -68,46 +77,90 @@ export function useSubjects() {
       tags: null,
     },
     mode: 'onSubmit',
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    resolver: zodResolver(createSubjectSchema as any),
+    resolver: zodResolver(createSubjectSchema),
   })
 
-  // Delete mutation
+  // Delete mutation with optimistic update and rollback
   const deleteMutation = useMutation({
     mutationFn: (id: string) => deleteSubject(id),
-    onSuccess: (result) => {
-      queryClient.setQueryData<Subject[]>(['subjects', { count: 50 }], (old) => {
+    onMutate: async (id: string) => {
+      // Cancel any outgoing refetches to avoid overwriting optimistic update
+      await queryClient.cancelQueries({ queryKey: subjectsQueryKey })
+
+      // Snapshot the previous value
+      const previousSubjects = queryClient.getQueryData<Subject[]>(subjectsQueryKey)
+
+      // Optimistically update cache by removing the subject
+      queryClient.setQueryData<Subject[]>(subjectsQueryKey, (old) => {
         if (!old) return old
-        return old.filter((u) => u.id !== result.id)
+        return old.filter((u) => u.id !== id)
       })
+
+      // Return context with previous value for rollback
+      return { previousSubjects }
+    },
+    onSuccess: () => {
       setDeleteDialogOpen(false)
       setSubjectToDelete(null)
     },
-    onError: (err: unknown) => {
-      setDeleteError((err as Error).message)
+    onError: (err: unknown, _id: string, context) => {
+      // Rollback to previous value on error
+      if (context?.previousSubjects) {
+        queryClient.setQueryData<Subject[]>(subjectsQueryKey, context.previousSubjects)
+      }
+      setDeleteError(getErrorMessage(err))
     },
   })
 
-  // Update mutation
+  // Update mutation with optimistic update and rollback
   const updateMutation = useMutation({
     mutationFn: (data: UpdateSubjectInput) => updateSubject(data),
-    onSuccess: (upd) => {
-      queryClient.setQueryData<Subject[]>(['subjects', { count: 50 }], (old) => {
+    onMutate: async (data: UpdateSubjectInput) => {
+      // Cancel any outgoing refetches to avoid overwriting optimistic update
+      await queryClient.cancelQueries({ queryKey: subjectsQueryKey })
+
+      // Snapshot the previous value
+      const previousSubjects = queryClient.getQueryData<Subject[]>(subjectsQueryKey)
+
+      // Optimistically update cache with the new values
+      queryClient.setQueryData<Subject[]>(subjectsQueryKey, (old) => {
         if (!old) return old
-        return old.map((u) =>
-          u.id === upd.id
-            ? {
-                ...u,
-                ...upd,
-              }
-            : u,
-        )
+        return old.map((u) => {
+          if (u.id !== data.id) return u
+          // Merge the update data with existing subject
+          // Convert form input to subject format for optimistic update
+          const birthDatetime =
+            data.birthDate && data.birthTime
+              ? new Date(`${data.birthDate.split('T')[0]}T${data.birthTime}Z`).toISOString()
+              : u.birth_datetime
+          return {
+            ...u,
+            name: data.name ?? u.name,
+            city: data.city ?? u.city,
+            nation: data.nation ?? u.nation,
+            birth_datetime: birthDatetime,
+            latitude: data.latitude ?? u.latitude,
+            longitude: data.longitude ?? u.longitude,
+            timezone: data.timezone ?? u.timezone,
+            rodens_rating: data.rodens_rating !== undefined ? data.rodens_rating : u.rodens_rating,
+            tags: data.tags !== undefined ? data.tags : u.tags,
+          }
+        })
       })
+
+      // Return context with previous value for rollback
+      return { previousSubjects }
+    },
+    onSuccess: () => {
       setEditDialogOpen(false)
       setSubjectToEdit(null)
     },
-    onError: (err: unknown) => {
-      setEditError((err as Error).message)
+    onError: (err: unknown, _data: UpdateSubjectInput, context) => {
+      // Rollback to previous value on error
+      if (context?.previousSubjects) {
+        queryClient.setQueryData<Subject[]>(subjectsQueryKey, context.previousSubjects)
+      }
+      setEditError(getErrorMessage(err))
     },
   })
 
@@ -115,7 +168,7 @@ export function useSubjects() {
   const createMutation = useMutation({
     mutationFn: (data: CreateSubjectInput) => createSubject(data),
     onSuccess: (created) => {
-      queryClient.setQueryData<Subject[]>(['subjects', { count: 50 }], (old) => {
+      queryClient.setQueryData<Subject[]>(subjectsQueryKey, (old) => {
         if (!old) return [created]
         return [created, ...old]
       })
@@ -123,7 +176,7 @@ export function useSubjects() {
       createForm.reset()
     },
     onError: (err: unknown) => {
-      setCreateError((err as Error).message)
+      setCreateError(getErrorMessage(err))
     },
   })
 

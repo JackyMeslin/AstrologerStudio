@@ -83,3 +83,31 @@ export type House = z.infer<typeof HouseSchema>
 export type Ephemeris = z.infer<typeof EphemerisSchema>
 export type EphemerisArray = z.infer<typeof EphemerisArraySchema>
 export type RodensRating = z.infer<typeof rodens_rating>
+
+// AI Usage response schema
+export const AIUsageResponseSchema = z.object({
+  usage: z.number(),
+  limit: z.number(),
+  remaining: z.number(),
+  plan: z.string().optional(),
+})
+
+export type AIUsageResponse = z.infer<typeof AIUsageResponseSchema>
+
+// Schema for public birth data from URL parameters
+// Used to validate base64-decoded chart data from shareable URLs
+export const publicBirthDataSchema = z.object({
+  name: z.string(),
+  year: z.number().int().min(1).max(3000),
+  month: z.number().int().min(1).max(12),
+  day: z.number().int().min(1).max(31),
+  hour: z.number().int().min(0).max(23),
+  minute: z.number().int().min(0).max(59),
+  city: z.string(),
+  nation: z.string(),
+  latitude: z.number().min(-90).max(90),
+  longitude: z.number().min(-180).max(180),
+  timezone: z.string(),
+})
+
+export type PublicBirthData = z.infer<typeof publicBirthDataSchema>

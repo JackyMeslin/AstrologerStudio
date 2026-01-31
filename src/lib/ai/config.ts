@@ -15,3 +15,11 @@ export const AI_CACHE_TTL_MS: number = (() => {
   const parsed = Number(rawTtl)
   return Number.isFinite(parsed) && parsed > 0 ? parsed : defaultTtlMs
 })()
+
+// Default AI model for interpretations
+const DEFAULT_AI_MODEL = 'deepseek/deepseek-v3.2'
+
+// AI model to use for interpretations.
+// Env: AI_MODEL (string, default: 'deepseek/deepseek-v3.2')
+// Allows switching models per environment without code changes.
+export const AI_MODEL = process.env.AI_MODEL || DEFAULT_AI_MODEL

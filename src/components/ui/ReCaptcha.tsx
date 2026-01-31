@@ -2,13 +2,14 @@
 
 import ReCAPTCHA from 'react-google-recaptcha'
 import { forwardRef } from 'react'
+import { clientLogger } from '@/lib/logging/client'
 
 // Check if reCAPTCHA is disabled (for self-hosted/dev environments)
 export const isRecaptchaDisabled = process.env.NEXT_PUBLIC_DISABLE_RECAPTCHA === 'true'
 
 // Log warning if disabled (client-side)
 if (typeof window !== 'undefined' && isRecaptchaDisabled) {
-  console.warn(
+  clientLogger.warn(
     '[SECURITY WARNING] reCAPTCHA is DISABLED. ' +
       'This should only be used in development or self-hosted environments.',
   )

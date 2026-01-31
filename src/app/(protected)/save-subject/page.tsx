@@ -5,15 +5,22 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { findOrCreateSubject } from '@/actions/subjects'
 import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
-import type { PublicBirthData } from '@/actions/public-astrology'
+import { publicBirthDataSchema, type PublicBirthData } from '@/types/schemas'
+import { clientLogger } from '@/lib/logging/client'
 
 /**
- * Decode base64 encoded chart data from URL
+ * Decode base64 encoded chart data from URL with Zod validation
  */
 function decodeChartData(encoded: string): PublicBirthData | null {
   try {
     const decoded = atob(encoded)
-    return JSON.parse(decoded) as PublicBirthData
+    const parsed = JSON.parse(decoded)
+    const result = publicBirthDataSchema.safeParse(parsed)
+    if (!result.success) {
+      clientLogger.warn('Invalid chart data in URL:', result.error.issues)
+      return null
+    }
+    return result.data
   } catch {
     return null
   }

@@ -2,6 +2,8 @@
 
 import { astrologerApi } from '@/lib/api/astrologer'
 import { logger } from '@/lib/logging/server'
+import { getSession } from '@/lib/security/session'
+import { trackChartCalculation } from '@/actions/astrology'
 import type {
   SubjectModel,
   ChartRequestOptions,
@@ -138,12 +140,31 @@ async function fetchTransitWithRetry(
   return null
 }
 
+// Maximum allowed date range in days to prevent DoS attacks
+const MAX_DATE_RANGE_DAYS = 365
+
 export async function getTransitRange(
   natalSubject: SubjectModel,
   startDate: Date,
   endDate: Date,
   chartOptions?: ChartRequestOptions,
 ): Promise<TransitDayData[]> {
+  // Validate date range to prevent DoS attacks
+  const rangeInMs = endDate.getTime() - startDate.getTime()
+  const rangeInDays = Math.ceil(rangeInMs / (1000 * 60 * 60 * 24))
+
+  if (rangeInDays > MAX_DATE_RANGE_DAYS) {
+    throw new Error(
+      `Date range exceeds maximum allowed (${MAX_DATE_RANGE_DAYS} days). Requested range: ${rangeInDays} days.`,
+    )
+  }
+
+  // Track timeline usage
+  const session = await getSession()
+  if (session?.userId) {
+    void trackChartCalculation('timeline')
+  }
+
   const transitData: TransitDayData[] = []
   const currentDate = new Date(startDate)
   const sampleIntervalDays = 1

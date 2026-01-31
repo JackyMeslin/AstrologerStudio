@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 export function StarField() {
   const [stars, setStars] = useState<
@@ -8,6 +8,9 @@ export function StarField() {
   >([])
 
   const [shootingStars, setShootingStars] = useState<Array<{ id: number; x: number; y: number; delay: number }>>([])
+
+  // Track all active timeouts for cleanup
+  const timeoutsRef = useRef<Set<ReturnType<typeof setTimeout>>>(new Set())
 
   useEffect(() => {
     // Generate static stars
@@ -38,7 +41,7 @@ export function StarField() {
       // "Not too often": 10 to 20 seconds, unless initialDelay is provided
       const timeout = initialDelay !== undefined ? initialDelay : Math.random() * 10000 + 10000
 
-      setTimeout(() => {
+      const mainTimeoutId = setTimeout(() => {
         // "2/3 simultaneous stars": 2 to 3 stars
         const count = Math.floor(Math.random() * 2) + 2
         const now = Date.now()
@@ -57,17 +60,29 @@ export function StarField() {
         setShootingStars((prev) => [...prev, ...newStars])
 
         // Remove star after animation
-        setTimeout(() => {
+        const cleanupTimeoutId = setTimeout(() => {
+          timeoutsRef.current.delete(cleanupTimeoutId)
           setShootingStars((prev) => prev.filter((s) => s.id < now))
         }, 5000)
+        timeoutsRef.current.add(cleanupTimeoutId)
 
         // Schedule next (always random interval after first one)
+        timeoutsRef.current.delete(mainTimeoutId)
         scheduleNextBatch()
       }, timeout)
+      timeoutsRef.current.add(mainTimeoutId)
     }
 
     // Start loop immediately (small delay to let animation frames settle)
     scheduleNextBatch(500)
+
+    // Cleanup: cancel all pending timeouts on unmount
+    // Copy ref to local variable per React exhaustive-deps rule
+    const timeouts = timeoutsRef.current
+    return () => {
+      timeouts.forEach((timeoutId) => clearTimeout(timeoutId))
+      timeouts.clear()
+    }
   }, [])
 
   return (

@@ -28,20 +28,20 @@ function LegalContentRender({ data }: { data: LegalPageData }) {
       <h1>{data.title}</h1>
       <p className="lead">Last Updated: {data.lastUpdated}</p>
 
-      {data.intro.map((paragraph, index) => (
-        <p key={index}>{paragraph}</p>
+      {data.intro.map((paragraph) => (
+        <p key={`intro-${paragraph.slice(0, 50)}`}>{paragraph}</p>
       ))}
 
-      {data.sections.map((section, index) => (
-        <div key={index}>
+      {data.sections.map((section) => (
+        <div key={`section-${section.title ?? 'untitled'}`}>
           {section.title && <h2>{section.title}</h2>}
-          {section.content?.map((paragraph, pIndex) => (
-            <p key={pIndex}>{paragraph}</p>
+          {section.content?.map((paragraph) => (
+            <p key={`content-${paragraph.slice(0, 50)}`}>{paragraph}</p>
           ))}
           {section.list && (
             <ul>
-              {section.list.map((item, lIndex) => (
-                <li key={lIndex}>
+              {section.list.map((item) => (
+                <li key={`list-${item.label ?? ''}-${item.text.slice(0, 50)}`}>
                   {item.label && <strong>{item.label}: </strong>}
                   {item.text}
                 </li>

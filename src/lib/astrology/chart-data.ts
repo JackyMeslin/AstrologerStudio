@@ -9,7 +9,8 @@
  * @module chartDataViewUtils
  */
 
-import { ChartData, ChartResponse } from '@/types/astrology'
+import type { ChartData, ChartResponse, Point } from '@/types/astrology'
+import { isPointKey } from '@/types/astrology'
 
 // ============================================================================
 // Constants
@@ -134,6 +135,55 @@ export interface ChartColors {
   grid: string
 }
 
+/**
+ * Subject type for dynamic point access.
+ *
+ * This type allows functions to accept:
+ * - EnrichedSubjectModel from production API responses (ChartData['subject'])
+ * - Record<string, ChartPoint> for testing with mock data
+ *
+ * Internal functions use {@link getChartSubjectPoint} for type-safe dynamic
+ * property access via string keys.
+ */
+export type ChartSubject = ChartData['subject'] | Record<string, ChartPoint | undefined>
+
+/**
+ * Retrieves a point from a ChartSubject by string key with type-safe access.
+ *
+ * Validates that the key is a known {@link PointKey} before accessing the
+ * subject, preventing access with invalid property names at runtime.
+ * Falls back to record-style access for test mock subjects.
+ *
+ * @param subject - The chart subject (EnrichedSubjectModel or Record for tests)
+ * @param key - The property key (e.g., "sun", "moon", "chiron")
+ * @returns The point if found, or undefined
+ */
+function getChartSubjectPoint(subject: ChartSubject, key: string): ChartPoint | undefined {
+  if (isPointKey(key)) {
+    return subject[key] as ChartPoint | undefined
+  }
+  // Fallback for Record-based test subjects with non-standard keys
+  if (key in subject) {
+    return (subject as Record<string, ChartPoint | undefined>)[key]
+  }
+  return undefined
+}
+
+/**
+ * Retrieves a Point from a chart subject by its string key.
+ *
+ * Validates that the key is a known Point property of EnrichedSubjectModel
+ * before accessing it, providing runtime type safety for dynamic property access.
+ *
+ * @param subject - The chart subject (EnrichedSubjectModel) to look up
+ * @param key - The property key (e.g., "sun", "moon", "chiron")
+ * @returns The Point if found, or undefined if key is invalid or point doesn't exist
+ */
+export function getSubjectPoint(subject: ChartData['subject'], key: string): Point | undefined {
+  if (!isPointKey(key)) return undefined
+  return subject[key]
+}
+
 // ============================================================================
 // Sorting Functions
 // ============================================================================
@@ -166,14 +216,10 @@ export function getSortIndex(name: string): number {
  * const sorted = sortActivePoints(['mars', 'sun', 'moon'], subject)
  * // Returns ['sun', 'moon', 'mars'] (sorted by PLANET_ORDER)
  */
-export function sortActivePoints(
-  activePoints: string[],
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  subject: any,
-): string[] {
+export function sortActivePoints(activePoints: string[], subject: ChartSubject): string[] {
   return [...activePoints].sort((a, b) => {
-    const nameA = subject?.[a.toLowerCase().replace(/_/g, '_')]?.name || a
-    const nameB = subject?.[b.toLowerCase().replace(/_/g, '_')]?.name || b
+    const nameA = getChartSubjectPoint(subject, a.toLowerCase().replace(/_/g, '_'))?.name || a
+    const nameB = getChartSubjectPoint(subject, b.toLowerCase().replace(/_/g, '_'))?.name || b
     return getSortIndex(nameA) - getSortIndex(nameB)
   })
 }
@@ -203,13 +249,12 @@ export function getPointsForCategory(
   categoryType: 'element' | 'quality',
   categoryValue: string,
   activePoints: string[],
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  subject: any,
+  subject: ChartSubject,
 ): ChartPoint[] {
   return activePoints
     .map((key) => {
       const pointKey = key.toLowerCase().replace(/_/g, '_')
-      return subject?.[pointKey] as ChartPoint | undefined
+      return getChartSubjectPoint(subject, pointKey) as ChartPoint | undefined
     })
     .filter((point): point is ChartPoint => point != null && point[categoryType] === categoryValue)
     .sort((a, b) => getSortIndex(a.name) - getSortIndex(b.name))
@@ -232,16 +277,12 @@ export function getPointsForCategory(
  * const counts = calculateElementDistFromPoints(subject, ['sun', 'moon', 'mars'])
  * // Returns { fire: 2, earth: 0, air: 0, water: 1 }
  */
-export function calculateElementDistFromPoints(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  subject: any,
-  activePoints: string[],
-): ElementCounts {
+export function calculateElementDistFromPoints(subject: ChartSubject, activePoints: string[]): ElementCounts {
   const counts: ElementCounts = { fire: 0, earth: 0, air: 0, water: 0 }
 
   activePoints.forEach((key) => {
     const pointKey = key.toLowerCase().replace(/_/g, '_')
-    const point = subject?.[pointKey]
+    const point = getChartSubjectPoint(subject, pointKey)
     if (point?.element) {
       const element = point.element.toLowerCase() as keyof ElementCounts
       if (element in counts) counts[element]++
@@ -264,16 +305,12 @@ export function calculateElementDistFromPoints(
  * const counts = calculateQualityDistFromPoints(subject, ['sun', 'moon', 'mars'])
  * // Returns { cardinal: 1, fixed: 1, mutable: 1 }
  */
-export function calculateQualityDistFromPoints(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  subject: any,
-  activePoints: string[],
-): QualityCounts {
+export function calculateQualityDistFromPoints(subject: ChartSubject, activePoints: string[]): QualityCounts {
   const counts: QualityCounts = { cardinal: 0, fixed: 0, mutable: 0 }
 
   activePoints.forEach((key) => {
     const pointKey = key.toLowerCase().replace(/_/g, '_')
-    const point = subject?.[pointKey]
+    const point = getChartSubjectPoint(subject, pointKey)
     if (point?.quality) {
       const quality = point.quality.toLowerCase() as keyof QualityCounts
       if (quality in counts) counts[quality]++
@@ -393,11 +430,9 @@ export function prepareElementsRadarData(
   primaryElementDist: ChartData['element_distribution'],
   secondaryElementDist: ElementDistribution | ChartData['element_distribution'] | undefined,
   activePoints: string[],
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  primarySubject: any,
+  primarySubject: ChartSubject,
   secondaryActivePoints?: string[],
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  secondarySubject?: any,
+  secondarySubject?: ChartSubject,
 ): RadarDataPoint[] {
   const elements = ['Fire', 'Earth', 'Air', 'Water'] as const
   const elementKeys = ['fire', 'earth', 'air', 'water'] as const
@@ -440,11 +475,9 @@ export function prepareQualitiesRadarData(
   primaryQualityDist: ChartData['quality_distribution'],
   secondaryQualityDist: QualityDistribution | ChartData['quality_distribution'] | undefined,
   activePoints: string[],
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  primarySubject: any,
+  primarySubject: ChartSubject,
   secondaryActivePoints?: string[],
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  secondarySubject?: any,
+  secondarySubject?: ChartSubject,
 ): RadarDataPoint[] {
   const qualities = ['Cardinal', 'Fixed', 'Mutable'] as const
   const qualityKeys = ['cardinal', 'fixed', 'mutable'] as const

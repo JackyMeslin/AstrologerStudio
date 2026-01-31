@@ -1,11 +1,13 @@
 'use server'
 
 import { z } from 'zod'
+import { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/db/prisma'
 import bcrypt from 'bcryptjs'
 import { createAdminSession, deleteAdminSession, getAdminSession, getClientIp } from '@/lib/security/admin-session'
 import { verifyRecaptcha } from '@/lib/security/recaptcha'
 import { withAdminAuth, withSuperAdminAuth } from '@/lib/security/admin-auth'
+import { checkAccountLockout, recordFailedLogin, clearFailedLogins } from '@/lib/security/rate-limit'
 
 /**
  * Admin Server Actions
@@ -52,12 +54,24 @@ export async function adminLogin(formData: FormData): Promise<ActionResult> {
     return { success: false, error: 'reCAPTCHA verification failed. Please try again.' }
   }
 
+  // Account lockout check (brute-force protection)
+  const lockoutStatus = checkAccountLockout(validation.data.username)
+  if (lockoutStatus.locked) {
+    const minutes = Math.ceil((lockoutStatus.remainingSeconds || 0) / 60)
+    return {
+      success: false,
+      error: `Account temporarily locked due to multiple failed login attempts. Please try again in ${minutes} minutes.`,
+    }
+  }
+
   // Find admin user
   const admin = await prisma.adminUser.findUnique({
     where: { username: validation.data.username },
   })
 
   if (!admin) {
+    // Record failed attempt for brute-force tracking
+    recordFailedLogin(validation.data.username)
     // Don't reveal if username exists
     return { success: false, error: 'Invalid credentials' }
   }
@@ -65,6 +79,8 @@ export async function adminLogin(formData: FormData): Promise<ActionResult> {
   // Verify password
   const isPasswordValid = await bcrypt.compare(validation.data.password, admin.password)
   if (!isPasswordValid) {
+    // Record failed attempt for brute-force tracking
+    recordFailedLogin(validation.data.username)
     // Log failed attempt
     const ipAddress = await getClientIp()
     await prisma.adminAuditLog.create({
@@ -77,6 +93,9 @@ export async function adminLogin(formData: FormData): Promise<ActionResult> {
     })
     return { success: false, error: 'Invalid credentials' }
   }
+
+  // Clear failed login attempts on successful login
+  clearFailedLogins(validation.data.username)
 
   // Create session
   await createAdminSession(admin.id, admin.username, admin.role as 'admin' | 'superadmin')
@@ -393,6 +412,18 @@ export async function getDashboardStats(): Promise<ActionResult<DashboardStats>>
 // User Management
 // ============================================================================
 
+export type ChartTypeKey =
+  | 'natal'
+  | 'transit'
+  | 'synastry'
+  | 'composite'
+  | 'solar-return'
+  | 'lunar-return'
+  | 'timeline'
+  | 'now'
+
+export type CalculationsByType = Record<ChartTypeKey, number>
+
 export type UserListItem = {
   id: string
   username: string
@@ -406,6 +437,7 @@ export type UserListItem = {
   subjectsCount: number
   savedChartsCount: number
   calculationsTotal: number
+  calculationsByType: CalculationsByType
   pdfExportsTotal: number
 }
 
@@ -428,18 +460,14 @@ export async function getUsers(
   sortOrder: 'asc' | 'desc' = 'desc',
 ): Promise<ActionResult<UsersListResult>> {
   return withAdminAuth(async (session) => {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const where: any = {}
-
-    if (search) {
-      where.OR = [
-        { username: { contains: search, mode: 'insensitive' } },
-        { email: { contains: search, mode: 'insensitive' } },
-      ]
-    }
-
-    if (planFilter) {
-      where.subscriptionPlan = planFilter
+    const where: Prisma.UserWhereInput = {
+      ...(search && {
+        OR: [
+          { username: { contains: search, mode: 'insensitive' as const } },
+          { email: { contains: search, mode: 'insensitive' as const } },
+        ],
+      }),
+      ...(planFilter && { subscriptionPlan: planFilter }),
     }
 
     // Build orderBy clause with proper NULL handling for nullable DateTime fields
@@ -488,14 +516,45 @@ export async function getUsers(
       },
     })
 
-    // Get calculation counts for these users
+    // Get calculation counts for these users grouped by chartType
     const userIds = users.map((u) => u.id)
-    const calculationCounts = await prisma.chartCalculationUsage.groupBy({
-      by: ['userId'],
+    const calculationCountsByType = await prisma.chartCalculationUsage.groupBy({
+      by: ['userId', 'chartType'],
       where: { userId: { in: userIds } },
       _sum: { count: true },
     })
-    const calcCountMap = new Map(calculationCounts.map((c) => [c.userId, c._sum.count || 0]))
+
+    // Build a map: userId -> chartType -> count
+    const defaultCounts: CalculationsByType = {
+      natal: 0,
+      transit: 0,
+      synastry: 0,
+      composite: 0,
+      'solar-return': 0,
+      'lunar-return': 0,
+      timeline: 0,
+      now: 0,
+    }
+
+    const calcByTypeMap = new Map<string, CalculationsByType>()
+    const calcTotalMap = new Map<string, number>()
+
+    for (const c of calculationCountsByType) {
+      const userId = c.userId
+      const chartType = c.chartType as ChartTypeKey
+      const count = c._sum.count || 0
+
+      if (!calcByTypeMap.has(userId)) {
+        calcByTypeMap.set(userId, { ...defaultCounts })
+        calcTotalMap.set(userId, 0)
+      }
+
+      const userCounts = calcByTypeMap.get(userId)!
+      if (chartType in userCounts) {
+        userCounts[chartType] = count
+      }
+      calcTotalMap.set(userId, (calcTotalMap.get(userId) || 0) + count)
+    }
 
     // Get PDF export counts for these users
     const pdfExportCounts = await prisma.pDFExportUsage.groupBy({
@@ -520,7 +579,8 @@ export async function getUsers(
           lastActiveAt: u.lastActiveAt,
           subjectsCount: u._count.subjects,
           savedChartsCount: u._count.savedCharts,
-          calculationsTotal: calcCountMap.get(u.id) || 0,
+          calculationsTotal: calcTotalMap.get(u.id) || 0,
+          calculationsByType: calcByTypeMap.get(u.id) || { ...defaultCounts },
           pdfExportsTotal: pdfCountMap.get(u.id) || 0,
         })),
         total,
@@ -1121,10 +1181,8 @@ export async function getCalculationStats(userId?: string): Promise<ActionResult
     const monthStart = thirtyDaysAgo.toISOString().split('T')[0]!
 
     // Base where clause
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const where: any = {}
-    if (userId) {
-      where.userId = userId
+    const where: Prisma.ChartCalculationUsageWhereInput = {
+      ...(userId && { userId }),
     }
 
     const [

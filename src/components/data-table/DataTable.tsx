@@ -1,3 +1,5 @@
+'use client'
+
 import { useEffect, useRef, useState } from 'react'
 import {
   flexRender,
@@ -37,11 +39,14 @@ function useDebouncedValue<T>(value: T, delay: number) {
 function GlobalFilterInput({ value, onChange, placeholder }: GlobalFilterInputProps) {
   const [localValue, setLocalValue] = useState(value)
   const debounced = useDebouncedValue(localValue, 300)
+  const prevExternalValueRef = useRef(value)
 
-  // Sync external changes
+  // Sync external changes (only when the external value actually changed)
   useEffect(() => {
-    if (value !== localValue) setLocalValue(value)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    if (value !== prevExternalValueRef.current) {
+      prevExternalValueRef.current = value
+      setLocalValue(value)
+    }
   }, [value])
 
   // Apply debounced value
@@ -288,7 +293,7 @@ export function DataTable<TData, TValue>({
           <TableBody>
             {isLoading ? (
               <TableRow>
-                <TableCell colSpan={columns.length} className="h-24 text-center">
+                <TableCell colSpan={columns.length} className="h-24 text-center" role="status" aria-live="polite">
                   Loading...
                 </TableCell>
               </TableRow>

@@ -5,6 +5,7 @@
  * Do NOT use NEXT_PUBLIC_ prefix to avoid exposing credentials in client bundle
  */
 import { logger } from '@/lib/logging/server'
+import { MIN_SEARCH_LENGTH } from '@/lib/validation/search'
 
 const GEONAMES_BASE_URL = 'https://secure.geonames.org'
 
@@ -136,7 +137,7 @@ export async function fetchCitySuggestions(
   const username = getGeoNamesUsername()
 
   const trimmed = city.trim()
-  if (trimmed.length < 2) return []
+  if (trimmed.length < MIN_SEARCH_LENGTH) return []
 
   const params = new URLSearchParams({
     q: trimmed,

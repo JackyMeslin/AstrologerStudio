@@ -16,7 +16,7 @@ import { DataTable } from '@/components/data-table/DataTable'
 import { Button } from '@/components/ui/button'
 import type { Subject } from '@/types/subjects'
 import { useSubjects } from '@/hooks/useSubjects'
-import { useDateFormat } from '@/hooks/useDateFormat'
+import { useChartPreferences } from '@/hooks/useChartPreferences'
 import { DeleteSubjectDialog } from '@/components/DeleteSubjectDialog'
 import { EditSubjectDialog } from '@/components/EditSubjectDialog'
 import { CreateSubjectDialog } from '@/components/CreateSubjectDialog'
@@ -53,7 +53,7 @@ import Link from 'next/link'
 
 export function SubjectsView() {
   const { query, deleteDialog, editDialog, createDialog, actions } = useSubjects()
-  const dateFormat = useDateFormat()
+  const { dateFormat } = useChartPreferences()
   const router = useRouter()
   const queryClient = useQueryClient()
 

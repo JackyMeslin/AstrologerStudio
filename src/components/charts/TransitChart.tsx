@@ -1,26 +1,22 @@
 'use client'
 
 import { useState, useEffect, useMemo } from 'react'
-import { DndContext, DragEndEvent, DragOverlay, DragStartEvent, closestCenter } from '@dnd-kit/core'
-import { createPortal } from 'react-dom'
 
 import { ChartResponse } from '@/types/astrology'
 import { AspectTable } from './AspectTable'
 import { AspectGrid } from './AspectGrid'
 import AspectsCard from '@/components/AspectsCard'
-import ZoomableChart from '@/components/ZoomableChart'
 import SubjectDetailsCard from '@/components/SubjectDetailsCard'
 import NatalPlanetPositionsCard from '@/components/NatalPlanetPositionsCard'
 import NatalHousesPositionsCard from '@/components/NatalHousesPositionsCard'
 import { ChartTabContents } from './ChartTabs'
-import { DraggableColumn } from '@/components/dnd/DraggableColumn'
-import { SortableCard } from '@/components/dnd/SortableCard'
+import { useChartLayout } from '@/hooks/useChartLayout'
+import { ChartLayoutGrid } from './ChartLayoutGrid'
 import { useUIPreferences } from '@/stores/uiPreferences'
 
 import { ChartDataView } from './ChartDataView'
 import { NotesPanel } from '@/components/NotesPanel'
-import { useAIInterpretation } from '@/stores/aiInterpretationSettings'
-import { CHART_TYPE_PROMPTS } from '@/lib/ai/prompts'
+import { useAIGeneration } from '@/hooks/useAIGeneration'
 import { generateChartId } from '@/lib/cache/interpretations'
 
 interface TransitChartProps {
@@ -55,11 +51,16 @@ export function TransitChart({
   staleDataLabel,
 }: TransitChartProps) {
   const { chart_wheel, chart_grid, chart_data } = data
-  const { layout, updateLayout, moveItem } = useUIPreferences()
-  const [activeId, setActiveId] = useState<string | null>(null)
-  const [mounted, setMounted] = useState(false)
   const [localNotes, setLocalNotes] = useState(initialNotes || '')
-  const { language, getActivePrompt, include_house_comparison } = useAIInterpretation()
+  const { generateInterpretation } = useAIGeneration()
+  const { layout: storeLayout, updateLayout } = useUIPreferences()
+
+  const layout = useChartLayout({
+    leftColumnId: LEFT_COLUMN_ID,
+    rightColumnId: RIGHT_COLUMN_ID,
+    defaultLeftItems: DEFAULT_LEFT_ITEMS,
+    defaultRightItems: DEFAULT_RIGHT_ITEMS,
+  })
 
   const notes = propNotes !== undefined ? propNotes : localNotes
   const handleNotesChange = onNotesChange || setLocalNotes
@@ -79,41 +80,15 @@ export function TransitChart({
     transitData.chart_data.subject.iso_formatted_utc_datetime,
   ])
 
+  // Transit-specific: ensure 'natal-houses-card' exists and deduplicate items
   useEffect(() => {
-    setMounted(true)
-  }, [])
-
-  // Fallback to 'chart' if 'chart_wheel' is missing (backward compatibility)
-  const mainChart = chart_wheel || data.chart
-
-  // Use nullish coalescing to allow empty columns (when all cards are dragged to one side)
-  // Also deduplicate items to prevent React key errors
-  const rawLeftItems = layout[LEFT_COLUMN_ID] ?? DEFAULT_LEFT_ITEMS
-  const rawRightItems = layout[RIGHT_COLUMN_ID] ?? DEFAULT_RIGHT_ITEMS
-
-  // Ensure no item appears in both columns - left takes priority
-  const leftItems = [...new Set(rawLeftItems)]
-  const rightItems = [...new Set(rawRightItems)].filter((id) => !leftItems.includes(id))
-
-  // Initialize layout only if keys don't exist at all (first time setup)
-  useEffect(() => {
-    // If entire columns are missing
-    if (!(LEFT_COLUMN_ID in layout)) {
-      updateLayout(LEFT_COLUMN_ID, DEFAULT_LEFT_ITEMS)
-    }
-    if (!(RIGHT_COLUMN_ID in layout)) {
-      updateLayout(RIGHT_COLUMN_ID, DEFAULT_RIGHT_ITEMS)
-    }
-
-    // Check if new items (like 'natal-houses-card') are missing from existing layout
-    const currentLeft = layout[LEFT_COLUMN_ID] || []
-    const currentRight = layout[RIGHT_COLUMN_ID] || []
+    const currentLeft = storeLayout[LEFT_COLUMN_ID] || []
+    const currentRight = storeLayout[RIGHT_COLUMN_ID] || []
     const allCurrentItems = [...new Set([...currentLeft, ...currentRight])]
 
     if (!allCurrentItems.includes('natal-houses-card')) {
-      // Add missing card to left column
       updateLayout(LEFT_COLUMN_ID, [
-        ...new Set([...(layout[LEFT_COLUMN_ID] || DEFAULT_LEFT_ITEMS), 'natal-houses-card']),
+        ...new Set([...(storeLayout[LEFT_COLUMN_ID] || DEFAULT_LEFT_ITEMS), 'natal-houses-card']),
       ])
     }
 
@@ -130,39 +105,14 @@ export function TransitChart({
       updateLayout(LEFT_COLUMN_ID, cleanLeft)
       updateLayout(RIGHT_COLUMN_ID, cleanRight)
     }
-  }, [layout, updateLayout])
+  }, [storeLayout, updateLayout])
 
-  const findContainer = (id: string) => {
-    if (leftItems.includes(id)) return LEFT_COLUMN_ID
-    if (rightItems.includes(id)) return RIGHT_COLUMN_ID
-    return null
-  }
+  // Fallback to 'chart' if 'chart_wheel' is missing (backward compatibility)
+  const mainChart = chart_wheel || data.chart
 
-  const handleDragStart = (event: DragStartEvent) => {
-    setActiveId(event.active.id as string)
-  }
-
-  const handleDragEnd = (event: DragEndEvent) => {
-    const { active, over } = event
-
-    if (!over) {
-      setActiveId(null)
-      return
-    }
-
-    const activeId = active.id as string
-    const overId = over.id as string
-
-    const activeContainer = findContainer(activeId)
-    const overContainer =
-      findContainer(overId) || (overId === LEFT_COLUMN_ID || overId === RIGHT_COLUMN_ID ? overId : null)
-
-    if (activeContainer && overContainer) {
-      moveItem(activeId, overId, activeContainer, overContainer)
-    }
-
-    setActiveId(null)
-  }
+  // Deduplicate items to prevent React key errors (transit-specific)
+  const leftItems = [...new Set(layout.leftItems)]
+  const rightItems = [...new Set(layout.rightItems)].filter((id) => !leftItems.includes(id))
 
   const renderCard = (id: string) => {
     switch (id) {
@@ -203,98 +153,24 @@ export function TransitChart({
   }
 
   const handleGenerateAI = async (onStreamUpdate?: (text: string) => void, signal?: AbortSignal) => {
-    const chartType = 'transit'
-
-    const response = await fetch('/api/ai/interpret', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        chartData: data.chart_data,
-        chartType,
-        systemPrompt: getActivePrompt(),
-        chartTypePrompt: CHART_TYPE_PROMPTS[chartType] || '',
-        language,
-        include_house_comparison,
-      }),
+    return generateInterpretation(
+      { chartData: data.chart_data, chartType: 'transit' },
+      onStreamUpdate,
       signal,
-    })
-
-    if (!response.ok) {
-      const errorData = await response.json()
-      throw new Error(errorData.error || 'Failed to generate interpretation')
-    }
-
-    // Extract debug headers (base64 encoded)
-    const debugContextB64 = response.headers.get('X-AI-Context')
-    const debugUserPromptB64 = response.headers.get('X-AI-User-Prompt')
-    const debugContext = debugContextB64 ? atob(debugContextB64) : undefined
-    const debugUserPrompt = debugUserPromptB64 ? atob(debugUserPromptB64) : undefined
-
-    const reader = response.body?.getReader()
-    const decoder = new TextDecoder()
-    if (!reader) throw new Error('No response body')
-
-    let accumulatedText = ''
-    while (true) {
-      const { done, value } = await reader.read()
-      if (done) break
-      const chunk = decoder.decode(value, { stream: true })
-      accumulatedText += chunk
-      onStreamUpdate?.(accumulatedText)
-    }
-
-    return { text: accumulatedText, debugContext, debugUserPrompt }
+    )
   }
 
+  // Override layout items with deduplicated versions for TransitChart
+  const transitLayout = { ...layout, leftItems, rightItems }
+
   const chartContent = (
-    <DndContext collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-      <div className="mx-auto w-full max-w-10xl h-full flex flex-col gap-6 overflow-x-visible overflow-y-clip">
-        {/* Mobile chart section - hidden on lg screens */}
-        <section className="flex justify-center items-center h-full w-full lg:hidden">
-          {mainChart ? (
-            <ZoomableChart
-              html={mainChart}
-              className="relative w-full h-full max-w-md flex items-center justify-center"
-            />
-          ) : null}
-        </section>
-
-        <main className="grid gap-8 justify-items-center grid-cols-1 md:grid-cols-2 lg:grid-cols-[2.5fr_5.65fr_2.5fr]">
-          {/* Left column: Natal Subject Details */}
-          <DraggableColumn id={LEFT_COLUMN_ID} items={leftItems} className="relative z-10">
-            {leftItems.map((id) => (
-              <SortableCard key={id} id={id}>
-                {renderCard(id)}
-              </SortableCard>
-            ))}
-          </DraggableColumn>
-
-          {/* Center: Chart */}
-          <section className="hidden lg:block w-full h-full relative z-0 lg:-translate-x-6">
-            {mainChart ? (
-              <ZoomableChart html={mainChart} className="absolute inset-0 flex items-center justify-center" />
-            ) : null}
-          </section>
-
-          {/* Right column: Transit Subject Details + Aspects */}
-          <DraggableColumn id={RIGHT_COLUMN_ID} items={rightItems} className="relative">
-            {rightItems.map((id) => (
-              <SortableCard key={id} id={id}>
-                {renderCard(id)}
-              </SortableCard>
-            ))}
-          </DraggableColumn>
-        </main>
-
-        {mounted &&
-          createPortal(
-            <DragOverlay>
-              {activeId ? <div className="opacity-80 rotate-2 cursor-grabbing">{renderCard(activeId)}</div> : null}
-            </DragOverlay>,
-            document.body,
-          )}
-      </div>
-    </DndContext>
+    <ChartLayoutGrid
+      layout={transitLayout}
+      leftColumnId={LEFT_COLUMN_ID}
+      rightColumnId={RIGHT_COLUMN_ID}
+      mainChart={mainChart}
+      renderCard={renderCard}
+    />
   )
 
   const aspectsContent = (

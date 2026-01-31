@@ -17,9 +17,13 @@ const ThemeContext = React.createContext<ThemeContextValue | undefined>(undefine
 
 function getStoredTheme(): Theme | null {
   if (typeof window === 'undefined') return null
-  const stored = window.localStorage.getItem(THEME_STORAGE_KEY)
-  if (stored === 'light' || stored === 'dark' || stored === 'system') {
-    return stored
+  try {
+    const stored = window.localStorage.getItem(THEME_STORAGE_KEY)
+    if (stored === 'light' || stored === 'dark' || stored === 'system') {
+      return stored
+    }
+  } catch {
+    // localStorage may not be available in some environments (tests, sandboxed iframes)
   }
   return null
 }
@@ -54,7 +58,11 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     const activeTheme = theme === 'system' ? systemTheme : theme
 
     applyTheme(activeTheme)
-    window.localStorage.setItem(THEME_STORAGE_KEY, theme)
+    try {
+      window.localStorage.setItem(THEME_STORAGE_KEY, theme)
+    } catch {
+      // localStorage may not be available in some environments
+    }
 
     if (theme === 'system') {
       const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')

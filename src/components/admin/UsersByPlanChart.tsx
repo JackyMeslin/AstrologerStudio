@@ -1,6 +1,13 @@
 'use client'
 
-import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts'
+import dynamic from 'next/dynamic'
+import { ChartLoadingSkeleton } from '@/components/ui/chart-loading-skeleton'
+
+// Dynamically import chart component to avoid loading recharts in the initial bundle
+const AdminPieChartContent = dynamic(
+  () => import('@/components/admin/AdminChartContent').then((mod) => mod.AdminPieChartContent),
+  { ssr: false, loading: () => <ChartLoadingSkeleton height={256} variant="admin" /> },
+)
 
 interface UsersByPlanChartProps {
   data: { plan: string; count: number }[]
@@ -33,28 +40,7 @@ export function UsersByPlanChart({ data }: UsersByPlanChartProps) {
     <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
       <h3 className="text-lg font-semibold text-white mb-4">Users by Plan</h3>
       <div className="h-64">
-        <ResponsiveContainer width="100%" height="100%">
-          <PieChart>
-            <Pie data={chartData} cx="50%" cy="50%" innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value">
-              {chartData.map((entry, index) => (
-                <Cell key={`cell-${index}`} fill={entry.color} />
-              ))}
-            </Pie>
-            <Tooltip
-              contentStyle={{
-                backgroundColor: '#1E293B',
-                border: '1px solid #475569',
-                borderRadius: '8px',
-              }}
-              labelStyle={{ color: '#F8FAFC' }}
-              itemStyle={{ color: '#94A3B8' }}
-            />
-            <Legend
-              wrapperStyle={{ color: '#94A3B8' }}
-              formatter={(value) => <span className="text-slate-300">{value}</span>}
-            />
-          </PieChart>
-        </ResponsiveContainer>
+        <AdminPieChartContent data={chartData} innerRadius={60} outerRadius={80} paddingAngle={5} />
       </div>
     </div>
   )

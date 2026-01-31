@@ -13,6 +13,7 @@ import { getSession } from '@/lib/security/session'
 import { createCheckoutSession } from '@/dodopayments/lib/server'
 import { dodoPaymentsConfig } from '@/dodopayments/lib/config'
 import { logger } from '@/lib/logging/server'
+import { CACHE_CONTROL, cacheControlHeaders } from '@/lib/security/cache-control'
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
@@ -49,10 +50,16 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     logger.info(`[DodoPayments/Checkout] Created session for user ${effectiveUserId}: ${checkoutSession.sessionId}`)
 
-    return NextResponse.json({
-      checkoutUrl: checkoutSession.checkoutUrl,
-      sessionId: checkoutSession.sessionId,
-    })
+    // Checkout sessions are one-time use and should never be cached
+    return NextResponse.json(
+      {
+        checkoutUrl: checkoutSession.checkoutUrl,
+        sessionId: checkoutSession.sessionId,
+      },
+      {
+        headers: cacheControlHeaders(CACHE_CONTROL.noStore),
+      },
+    )
   } catch (error) {
     logger.error('[DodoPayments/Checkout] Error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

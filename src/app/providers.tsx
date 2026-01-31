@@ -1,11 +1,37 @@
 'use client'
 
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { QueryClient, QueryClientProvider, QueryCache, MutationCache } from '@tanstack/react-query'
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
 import { ReactNode, useState } from 'react'
 import { ThemeProvider } from '@/components/ThemeProvider'
 import { Toaster } from '@/components/ui/sonner'
 import { ErrorBoundary } from '@/components/ErrorBoundary'
+import { clientLogger } from '@/lib/logging/client'
+import { STALE_TIME, GC_TIME } from '@/lib/config/query'
+
+/**
+ * Global error handler for React Query mutations
+ * Logs all mutation errors centrally for debugging and monitoring
+ */
+export function handleMutationError(error: Error): void {
+  clientLogger.error('[React Query] Mutation error:', {
+    message: error.message,
+    name: error.name,
+    stack: error.stack,
+  })
+}
+
+/**
+ * Global error handler for React Query queries
+ * Logs all query errors centrally for debugging and monitoring
+ */
+export function handleQueryError(error: Error): void {
+  clientLogger.error('[React Query] Query error:', {
+    message: error.message,
+    name: error.name,
+    stack: error.stack,
+  })
+}
 
 /**
  * Root providers component for the application
@@ -14,7 +40,7 @@ import { ErrorBoundary } from '@/components/ErrorBoundary'
  * Wraps the app with:
  * - ErrorBoundary: Catches and handles React errors gracefully
  * - ThemeProvider: Handles dark/light mode theming
- * - PersistQueryClientProvider: Provides React Query with localStorage persistence
+ * - QueryClientProvider: Provides React Query with global error handling
  * - Toaster: Global toast notifications
  * - ReactQueryDevtools: Query debugging tools (development only)
  *
@@ -25,16 +51,23 @@ import { ErrorBoundary } from '@/components/ErrorBoundary'
  * </Providers>
  * ```
  */
+
 export function Providers({ children }: { children: ReactNode }) {
   const [queryClient] = useState(
     () =>
       new QueryClient({
+        queryCache: new QueryCache({
+          onError: handleQueryError,
+        }),
+        mutationCache: new MutationCache({
+          onError: handleMutationError,
+        }),
         defaultOptions: {
           queries: {
             retry: 1,
             refetchOnWindowFocus: false,
-            staleTime: 5 * 60 * 1000, // 5 minutes
-            gcTime: 10 * 60 * 1000, // 10 minutes (formerly cacheTime)
+            staleTime: STALE_TIME.MEDIUM, // 5 minutes
+            gcTime: GC_TIME.DEFAULT, // 10 minutes
           },
         },
       }),

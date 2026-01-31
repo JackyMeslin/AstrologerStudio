@@ -262,6 +262,53 @@ export interface EnrichedSubjectModel extends SubjectModel {
 }
 
 /**
+ * Keys of EnrichedSubjectModel whose values are Point (required or optional).
+ * Use this type to constrain dynamic property access on chart subjects.
+ */
+export type PointKey = NonNullable<{
+  [K in keyof EnrichedSubjectModel]: EnrichedSubjectModel[K] extends Point | undefined ? K : never
+}[keyof EnrichedSubjectModel]>
+
+/**
+ * All valid PointKey values as a runtime Set for type guard validation.
+ */
+const POINT_KEYS: ReadonlySet<string> = new Set<PointKey>([
+  // Core Planets
+  'sun', 'moon', 'mercury', 'venus', 'mars',
+  'jupiter', 'saturn', 'uranus', 'neptune', 'pluto',
+  // Lunar Nodes
+  'mean_north_lunar_node', 'true_north_lunar_node',
+  'mean_south_lunar_node', 'true_south_lunar_node',
+  // Centaurs & Minor Bodies
+  'chiron', 'pholus',
+  // Lilith
+  'mean_lilith', 'true_lilith',
+  // Asteroids
+  'ceres', 'pallas', 'juno', 'vesta', 'eris',
+  // Trans-Neptunian Objects
+  'sedna', 'haumea', 'makemake', 'ixion', 'orcus', 'quaoar',
+  // Fixed Stars
+  'regulus', 'spica',
+  // Arabic Parts
+  'pars_fortunae', 'pars_spiritus', 'pars_amoris', 'pars_fidei',
+  // Other
+  'earth', 'vertex', 'anti_vertex',
+  // Chart Angles
+  'ascendant', 'medium_coeli', 'descendant', 'imum_coeli',
+  // Houses
+  'first_house', 'second_house', 'third_house', 'fourth_house',
+  'fifth_house', 'sixth_house', 'seventh_house', 'eighth_house',
+  'ninth_house', 'tenth_house', 'eleventh_house', 'twelfth_house',
+])
+
+/**
+ * Runtime type guard that checks if a string is a valid PointKey.
+ */
+export function isPointKey(key: string): key is PointKey {
+  return POINT_KEYS.has(key)
+}
+
+/**
  * Point positioned in another subject's house (for house comparison in dual charts)
  * Matches API's PointInHouseModel
  */

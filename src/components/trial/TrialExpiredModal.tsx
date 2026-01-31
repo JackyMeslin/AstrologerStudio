@@ -14,6 +14,7 @@ import { Button } from '@/components/ui/button'
 import { downgradeToFree } from '@/actions/trial'
 import { isDodoPaymentsEnabled } from '@/lib/subscription/config'
 import { dodoPaymentsConfig } from '@/dodopayments/lib/config'
+import { clientLogger } from '@/lib/logging/client'
 
 interface TrialExpiredModalProps {
   isOpen: boolean
@@ -57,7 +58,7 @@ export function TrialExpiredModal({ isOpen, userId, userEmail }: TrialExpiredMod
         })
         setIsCheckoutReady(true)
       } catch (err) {
-        console.error('Failed to initialize checkout:', err)
+        clientLogger.error('Failed to initialize checkout:', err)
         setIsCheckoutReady(true)
       }
     }
@@ -108,7 +109,7 @@ export function TrialExpiredModal({ isOpen, userId, userEmail }: TrialExpiredMod
       const { DodoPayments } = await import('dodopayments-checkout')
       await DodoPayments.Checkout.open({ checkoutUrl })
     } catch (err) {
-      console.error('Failed to open checkout:', err)
+      clientLogger.error('Failed to open checkout:', err)
       setError('Failed to open checkout. Please try again.')
       setIsCheckoutLoading(false)
       setIsCheckoutOpen(false)

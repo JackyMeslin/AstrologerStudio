@@ -7,6 +7,7 @@ import { getAllTimezones } from '@/lib/geo/timezones'
 import { cn } from '@/lib/utils/cn'
 
 interface TimezoneComboboxProps {
+  id?: string
   value: string
   onChange: (value: string) => void
   disabled?: boolean
@@ -16,6 +17,7 @@ interface TimezoneComboboxProps {
 }
 
 export function TimezoneCombobox({
+  id,
   value,
   onChange,
   disabled,
@@ -47,6 +49,7 @@ export function TimezoneCombobox({
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button
+          id={id}
           type="button"
           variant="outline"
           role="combobox"

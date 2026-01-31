@@ -7,6 +7,7 @@ import { withAuth } from '@/lib/security/auth'
 import { sendEmailChangeVerification, isEmailConfigured } from '@/lib/mail/mail'
 import { z } from 'zod'
 import { Prisma } from '@prisma/client'
+import { TOKEN_EXPIRY_MS } from '@/lib/config/time'
 
 /**
  * Result type for email actions
@@ -115,7 +116,7 @@ export async function requestEmailChange(newEmail: string): Promise<ActionResult
           type: 'email_change',
           userId: session.userId,
           payload: newEmail,
-          expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours
+          expiresAt: new Date(Date.now() + TOKEN_EXPIRY_MS),
         },
       })
 

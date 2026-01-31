@@ -8,8 +8,10 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
-import { ErrorBoundary } from '@/components/ErrorBoundary'
+import { ErrorBoundary, PRODUCTION_ERROR_MESSAGE, isProductionMode } from '@/components/ErrorBoundary'
 
+// ============================================================================
+// Test Utilities
 // ============================================================================
 // Test Utilities
 // ============================================================================
@@ -106,14 +108,14 @@ describe('ErrorBoundary', () => {
       expect(screen.getByText('Something went wrong')).toBeInTheDocument()
     })
 
-    it('should display the error message', () => {
+    it('should display the error message in development', () => {
       render(
         <ErrorBoundary>
           <ThrowingComponent />
         </ErrorBoundary>,
       )
 
-      // Should show the actual error message for debugging
+      // In development (test environment), should show the actual error message for debugging
       expect(screen.getByText('Test error message')).toBeInTheDocument()
     })
 
@@ -139,6 +141,63 @@ describe('ErrorBoundary', () => {
       // ErrorBoundary should call console.error when catching errors
       // React also logs errors internally, so we just verify it was called
       expect(consoleErrorSpy).toHaveBeenCalled()
+    })
+  })
+
+  // ===========================================================================
+  // Production Environment Tests
+  // ===========================================================================
+
+  describe('production environment', () => {
+    /**
+     * In production, error messages should be hidden to prevent
+     * exposing implementation details, stack traces, or sensitive info.
+     *
+     * Note: process.env.NODE_ENV is 'test' during testing. We verify:
+     * 1. The isProductionMode function works correctly
+     * 2. The PRODUCTION_ERROR_MESSAGE constant is properly defined
+     * 3. The component structure correctly displays messages
+     */
+
+    it('should have isProductionMode function that checks NODE_ENV', () => {
+      // In test environment, NODE_ENV is 'test', not 'production'
+      expect(isProductionMode()).toBe(false)
+    })
+
+    it('should have a user-friendly production error message defined', () => {
+      // The production message should be Italian and user-friendly
+      expect(PRODUCTION_ERROR_MESSAGE).toBe('Si è verificato un errore imprevisto')
+      // It should not contain English technical details
+      expect(PRODUCTION_ERROR_MESSAGE).not.toMatch(/exception|stack|trace|undefined|null/i)
+      // Should not expose file paths or line numbers
+      expect(PRODUCTION_ERROR_MESSAGE).not.toMatch(/\.ts|\.tsx|\.js|:\d+/)
+    })
+
+    it('should display error message area in the UI', () => {
+      render(
+        <ErrorBoundary>
+          <ThrowingComponent />
+        </ErrorBoundary>,
+      )
+
+      // The component should have a message area with font-mono styling
+      // In production this would show PRODUCTION_ERROR_MESSAGE,
+      // in development/test it shows the actual error for debugging
+      const messageElement = screen.getByText('Test error message')
+      expect(messageElement).toHaveClass('font-mono')
+      expect(messageElement.closest('.rounded-md')).toBeInTheDocument()
+    })
+
+    it('should always display the error card title regardless of environment', () => {
+      render(
+        <ErrorBoundary>
+          <ThrowingComponent />
+        </ErrorBoundary>,
+      )
+
+      // These UI elements should always be present
+      expect(screen.getByText('Something went wrong')).toBeInTheDocument()
+      expect(screen.getByText('An unexpected error occurred')).toBeInTheDocument()
     })
   })
 

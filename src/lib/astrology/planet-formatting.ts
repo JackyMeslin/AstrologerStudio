@@ -11,7 +11,15 @@
  * @returns Formatted display name
  */
 export function formatPlanetName(apiName: string): string {
-  // Special handling for lunar nodes
+  // Special handling for simplified lunar node names
+  if (apiName === 'True_Node' || apiName === 'True Node') {
+    return 'North Node'
+  }
+  if (apiName === 'Mean_Node' || apiName === 'Mean Node') {
+    return 'North Node (Mean)'
+  }
+
+  // Special handling for lunar nodes (full names)
   if (apiName === 'True_North_Lunar_Node' || apiName === 'True North Lunar Node') {
     return 'North Node (T)'
   }
@@ -30,7 +38,7 @@ export function formatPlanetName(apiName: string): string {
     return 'Lilith (M)'
   }
   if (apiName === 'True_Lilith' || apiName === 'True Lilith') {
-    return 'Lilith (T)'
+    return 'Black Moon Lilith'
   }
 
   // Special handling for Arabic Parts (Pars)
@@ -48,6 +56,12 @@ export function formatPlanetName(apiName: string): string {
   }
 
   // Special handling for chart angles
+  if (apiName === 'Asc') {
+    return 'Ascendant'
+  }
+  if (apiName === 'Mc') {
+    return 'Midheaven'
+  }
   if (apiName === 'Medium_Coeli' || apiName === 'Medium Coeli') {
     return 'Midheaven (MC)'
   }

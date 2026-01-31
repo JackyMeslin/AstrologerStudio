@@ -70,6 +70,43 @@ export const PLANET_LABELS: Record<string, string> = {
   Pars_Fidei: 'PFi',
 }
 
+/**
+ * Aspect nature categories for accessibility (WCAG 1.4.1).
+ * Provides text labels to complement color-coded styling.
+ */
+export type AspectNature = 'harmonious' | 'challenging' | 'neutral' | 'creative'
+
+export const ASPECT_NATURE: Record<string, AspectNature> = {
+  conjunction: 'neutral',
+  opposition: 'challenging',
+  square: 'challenging',
+  trine: 'harmonious',
+  sextile: 'harmonious',
+  quincunx: 'challenging',
+  'semi-sextile': 'harmonious',
+  'semi-square': 'challenging',
+  sesquiquadrate: 'challenging',
+  quintile: 'creative',
+  'bi-quintile': 'creative',
+  biquintile: 'creative',
+}
+
+/** Short labels for aspect nature (for visual display) */
+export const ASPECT_NATURE_LABELS: Record<AspectNature, string> = {
+  harmonious: 'H',
+  challenging: 'C',
+  neutral: 'N',
+  creative: 'Cr',
+}
+
+/** Full labels for aspect nature (for accessibility/screen readers) */
+export const ASPECT_NATURE_FULL_LABELS: Record<AspectNature, string> = {
+  harmonious: 'Harmonious',
+  challenging: 'Challenging',
+  neutral: 'Neutral',
+  creative: 'Creative',
+}
+
 export const ASPECT_STYLES: Record<string, { text: string; bg: string; border: string }> = {
   conjunction: { text: 'text-yellow-600 dark:text-yellow-400', bg: 'bg-yellow-500/20', border: 'border-yellow-500/40' },
   opposition: { text: 'text-red-600 dark:text-red-400', bg: 'bg-red-500/20', border: 'border-red-500/40' },
@@ -91,6 +128,14 @@ export const ASPECT_STYLES: Record<string, { text: string; bg: string; border: s
     bg: 'bg-teal-500/20',
     border: 'border-teal-500/40',
   },
+}
+
+/**
+ * Gets the nature of an aspect for accessibility purposes.
+ * Returns 'neutral' for unknown aspects.
+ */
+export function getAspectNature(aspectName: string): AspectNature {
+  return ASPECT_NATURE[aspectName.toLowerCase()] || 'neutral'
 }
 
 function formatOrb(orb: number): string {
@@ -260,6 +305,9 @@ export function AspectGrid({
                   }
 
                   const styles = getAspectStyles(aspect.aspect)
+                  const aspectNature = getAspectNature(aspect.aspect)
+                  const natureLabel = ASPECT_NATURE_LABELS[aspectNature]
+                  const natureFullLabel = ASPECT_NATURE_FULL_LABELS[aspectNature]
 
                   const TriggerContent = (
                     <div
@@ -268,17 +316,23 @@ export function AspectGrid({
                         styles.bg,
                         styles.border,
                       )}
+                      aria-label={`${aspect.aspect} aspect (${natureFullLabel}), orb ${formatOrb(aspect.orbit)}`}
                     >
-                      <span className={cn('text-lg sm:text-xl font-bold leading-none mb-1', styles.text)}>
+                      <span className={cn('text-lg sm:text-xl font-bold leading-none mb-0.5', styles.text)}>
                         {getAspectSymbol(aspect.aspect)}
                       </span>
                       <span className="font-mono text-[10px] opacity-80 leading-tight">{formatOrb(aspect.orbit)}</span>
-                      <span className="font-medium text-[9px] uppercase text-muted-foreground leading-tight">
+                      {/* Aspect nature indicator for accessibility (WCAG 1.4.1) */}
+                      <span
+                        className="font-medium text-[8px] uppercase text-muted-foreground leading-tight"
+                        title={natureFullLabel}
+                      >
+                        {natureLabel}
                         {aspect.aspect_movement === 'Applying'
-                          ? 'A'
+                          ? '/A'
                           : aspect.aspect_movement === 'Separating'
-                            ? 'S'
-                            : '-'}
+                            ? '/S'
+                            : ''}
                       </span>
                     </div>
                   )
@@ -325,4 +379,3 @@ export function AspectGrid({
     </div>
   )
 }
-

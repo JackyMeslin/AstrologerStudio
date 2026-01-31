@@ -14,6 +14,7 @@ import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
 import { DateTimeLocationSelector } from '@/components/ui/DateTimeLocationSelector'
 import type { LocationFormValues } from '@/components/SubjectLocationFields'
+import { DEFAULT_NOW_CHART_LOCATION } from '@/lib/config/now-chart'
 import { Tabs } from '@/components/ui/tabs'
 import { ChartTabsList } from '@/components/charts/ChartTabs'
 import { isAIGloballyEnabled } from '@/lib/ai/feature-flags'
@@ -30,8 +31,9 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { useDateFormat, useTimeFormat } from '@/hooks/useDateFormat'
+import { useChartPreferences } from '@/hooks/useChartPreferences'
 import { formatDisplayDate, formatDisplayTime } from '@/lib/utils/date'
+import { STALE_TIME } from '@/lib/config/query'
 
 function mapNowChartToSubjectInput(chart: ChartResponse): CreateSubjectInput {
   const subject = chart.chart_data?.subject
@@ -71,8 +73,7 @@ export function NowChartView() {
   const [isSaveDialogOpen, setIsSaveDialogOpen] = useState(false)
   const [saveName, setSaveName] = useState('')
   const [notes, setNotes] = useState('')
-  const dateFormat = useDateFormat()
-  const timeFormat = useTimeFormat()
+  const { dateFormat, timeFormat } = useChartPreferences()
 
   const { data, isLoading, isFetching, isError, error, refetch } = useQuery({
     queryKey: ['now-chart', chartTheme, override],
@@ -80,13 +81,13 @@ export function NowChartView() {
       if (override) {
         const overrideSubject: Subject = {
           id: 'now-override',
-          name: 'Now Chart',
+          name: 'Now',
           birth_datetime: override.dateTime,
-          city: override.location.city ?? '',
-          nation: override.location.nation ?? '',
-          latitude: override.location.latitude ?? 0,
-          longitude: override.location.longitude ?? 0,
-          timezone: override.location.timezone ?? '0',
+          city: override.location.city || DEFAULT_NOW_CHART_LOCATION.city,
+          nation: override.location.nation || DEFAULT_NOW_CHART_LOCATION.nation,
+          latitude: override.location.latitude ?? DEFAULT_NOW_CHART_LOCATION.latitude,
+          longitude: override.location.longitude ?? DEFAULT_NOW_CHART_LOCATION.longitude,
+          timezone: override.location.timezone || DEFAULT_NOW_CHART_LOCATION.timezone,
           ownerId: 'system',
           createdAt: new Date(),
           updatedAt: new Date(),
@@ -96,7 +97,7 @@ export function NowChartView() {
       return getNowChart({ theme: chartTheme })
     },
     // Fresh chart on initial page load only - no auto-refresh on window focus
-    staleTime: 0,
+    staleTime: STALE_TIME.NONE,
     refetchOnMount: 'always',
     refetchOnWindowFocus: false,
     placeholderData: (previousData) => previousData,
@@ -126,9 +127,9 @@ export function NowChartView() {
 
   if (isLoading) {
     return (
-      <div className="space-y-8 p-0 md:p-2">
+      <div className="space-y-4 p-0 md:p-2">
         <Skeleton className="h-12 w-1/3" />
-        <Skeleton className="h-[500px] w-full" />
+        <Skeleton className="h-[600px] w-full" />
       </div>
     )
   }
@@ -150,11 +151,11 @@ export function NowChartView() {
   const currentLocation: LocationFormValues = override
     ? override.location
     : {
-        city: currentSubject?.city || '',
-        nation: currentSubject?.nation || '',
-        latitude: currentSubject?.latitude ?? 0,
-        longitude: currentSubject?.longitude ?? 0,
-        timezone: currentSubject?.timezone || 'UTC',
+        city: currentSubject?.city || DEFAULT_NOW_CHART_LOCATION.city,
+        nation: currentSubject?.nation || DEFAULT_NOW_CHART_LOCATION.nation,
+        latitude: currentSubject?.latitude ?? DEFAULT_NOW_CHART_LOCATION.latitude,
+        longitude: currentSubject?.longitude ?? DEFAULT_NOW_CHART_LOCATION.longitude,
+        timezone: currentSubject?.timezone || DEFAULT_NOW_CHART_LOCATION.timezone,
       }
 
   return (

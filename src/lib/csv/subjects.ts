@@ -177,22 +177,3 @@ export function createSubjectSignature(name: string, birthDatetime: Date | strin
   return `${name.toLowerCase().trim()}|${dateStr}`
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Export CSV Generation
-// ─────────────────────────────────────────────────────────────────────────────
-
-/**
- * CSV column headers for subject export
- */
-export const SUBJECT_CSV_HEADERS = [
-  'name',
-  'birthDatetime',
-  'city',
-  'nation',
-  'latitude',
-  'longitude',
-  'timezone',
-  'rodensRating',
-  'tags',
-  'notes',
-] as const

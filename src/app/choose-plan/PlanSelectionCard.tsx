@@ -10,7 +10,7 @@
  * @module app/choose-plan/PlanSelectionCard
  */
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
@@ -19,6 +19,7 @@ import { selectFreePlan, completeOnboarding } from '@/actions/plan-selection'
 import { isDodoPaymentsEnabled } from '@/lib/subscription/config'
 import { dodoPaymentsConfig } from '@/dodopayments/lib/config'
 import { PRICING_CONFIG } from '@/lib/config/pricing'
+import { clientLogger } from '@/lib/logging/client'
 
 interface PlanSelectionCardProps {
   userId: string
@@ -30,6 +31,16 @@ export function PlanSelectionCard({ userId, email }: PlanSelectionCardProps) {
   const [isSelectingFree, setIsSelectingFree] = useState(false)
   const [isSelectingPro, setIsSelectingPro] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current)
+      }
+    }
+  }, [])
 
   const handleSelectFree = async () => {
     setIsSelectingFree(true)
@@ -42,7 +53,7 @@ export function PlanSelectionCard({ userId, email }: PlanSelectionCardProps) {
       setIsSelectingFree(false)
       // Automatically refresh if logged out
       if (result.error.includes('Logging you out')) {
-        setTimeout(() => window.location.reload(), 2000)
+        timeoutRef.current = setTimeout(() => window.location.reload(), 2000)
       }
     } else {
       router.push('/dashboard')
@@ -176,6 +187,16 @@ function ProCheckoutButton({
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(false)
   const [isCheckoutReady, setIsCheckoutReady] = useState(false)
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current)
+      }
+    }
+  }, [])
 
   // Initialize Dodo checkout SDK
   useEffect(() => {
@@ -199,7 +220,7 @@ function ProCheckoutButton({
         })
         setIsCheckoutReady(true)
       } catch (error) {
-        console.error('Failed to initialize checkout:', error)
+        clientLogger.error('Failed to initialize checkout:', error)
         setIsCheckoutReady(true) // Continue anyway
       }
     }
@@ -221,7 +242,7 @@ function ProCheckoutButton({
         onLoading(false)
         // Automatically refresh if logged out
         if (result.error.includes('Logging you out')) {
-          setTimeout(() => window.location.reload(), 2000)
+          timeoutRef.current = setTimeout(() => window.location.reload(), 2000)
         }
       } else {
         router.push('/dashboard')
@@ -255,7 +276,7 @@ function ProCheckoutButton({
       const { DodoPayments } = await import('dodopayments-checkout')
       await DodoPayments.Checkout.open({ checkoutUrl })
     } catch (error) {
-      console.error('Failed to open checkout:', error)
+      clientLogger.error('Failed to open checkout:', error)
       onError('Failed to open checkout. Please try again.')
       setIsLoading(false)
       onLoading(false)

@@ -13,6 +13,7 @@ import { getSession } from '@/lib/security/session'
 import { getCustomerPortalUrl } from '@/dodopayments/lib/server'
 import { prisma } from '@/lib/db/prisma'
 import { logger } from '@/lib/logging/server'
+import { CACHE_CONTROL, cacheControlHeaders } from '@/lib/security/cache-control'
 
 export async function POST(_request: NextRequest): Promise<NextResponse> {
   try {
@@ -44,9 +45,15 @@ export async function POST(_request: NextRequest): Promise<NextResponse> {
 
     logger.info(`[DodoPayments/Portal] Created portal for user ${session.userId}`)
 
-    return NextResponse.json({
-      url: portalUrl,
-    })
+    // Portal URLs are one-time use and should never be cached
+    return NextResponse.json(
+      {
+        url: portalUrl,
+      },
+      {
+        headers: cacheControlHeaders(CACHE_CONTROL.noStore),
+      },
+    )
   } catch (error) {
     logger.error('[DodoPayments/Portal] Error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

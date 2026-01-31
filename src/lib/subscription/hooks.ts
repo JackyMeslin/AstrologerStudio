@@ -3,6 +3,8 @@
 // NOTE: DODO PAYMENTS
 import { useQuery } from '@tanstack/react-query'
 import { isDodoPaymentsEnabled, type SubscriptionStatus } from './config'
+import { clientLogger } from '@/lib/logging/client'
+import { STALE_TIME } from '@/lib/config/query'
 
 const DEFAULT_LIFETIME_STATUS: SubscriptionStatus = {
   plan: 'lifetime',
@@ -31,13 +33,13 @@ export function useSubscription() {
         }
         return response.json() as Promise<SubscriptionStatus>
       } catch (error) {
-        console.error('Subscription check failed:', error)
+        clientLogger.error('Subscription check failed:', error)
         // Fallback to free if API fails (safe default)
         return DEFAULT_FREE_STATUS
       }
     },
     // Don't refetch too often
-    staleTime: 1000 * 60 * 5, // 5 minutes
+    staleTime: STALE_TIME.MEDIUM, // 5 minutes
     retry: false,
   })
 }

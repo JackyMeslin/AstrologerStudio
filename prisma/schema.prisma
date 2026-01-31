@@ -65,6 +65,9 @@ model User {
 
   @@index([username])
   @@index([customerId])
+  @@index([email])
+  @@index([subscriptionPlan])
+  @@index([lastActiveAt])
 }
 
 /// Subject represents a person for whom charts can be generated
@@ -246,14 +249,15 @@ model AdminSession {
 }
 
 /// Audit log for admin actions
+/// Logs are preserved when admin is deleted for compliance purposes
 model AdminAuditLog {
-  id        String    @id @default(uuid())
-  adminId   String
-  admin     AdminUser @relation(fields: [adminId], references: [id])
-  action    String    // login, logout, view_users, delete_user, etc.
-  details   String?   // JSON with additional context
+  id        String     @id @default(uuid())
+  adminId   String?    // Nullable: logs preserved when admin deleted
+  admin     AdminUser? @relation(fields: [adminId], references: [id], onDelete: SetNull)
+  action    String     // login, logout, view_users, delete_user, etc.
+  details   String?    // JSON with additional context
   ipAddress String
-  createdAt DateTime  @default(now())
+  createdAt DateTime   @default(now())
 
   @@index([adminId])
   @@index([action])

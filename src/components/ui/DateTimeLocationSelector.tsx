@@ -54,8 +54,7 @@ export function DateTimeLocationSelector({
         time: format(new Date(defaultDateTime), 'HH:mm'),
       })
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [locationKey, defaultDateTime])
+  }, [locationKey, defaultDateTime, form, defaultLocation])
 
   const triggerUpdate = (newDate: string, newTime: string) => {
     const currentValues = form.getValues()
@@ -134,19 +133,26 @@ export function DateTimeLocationSelector({
               variant="outline"
               size="icon"
               onClick={() => handleStep('backward')}
-              title="Step Backward"
+              aria-label="Step Backward"
             >
               <ChevronLeft className="h-4 w-4" />
             </Button>
 
             <div className="flex items-center gap-2 sm:gap-2">
+              <label htmlFor="dt-selector-step-amount" className="sr-only">
+                Step amount
+              </label>
               <Input
+                id="dt-selector-step-amount"
                 type="number"
                 min={1}
                 value={stepAmount}
                 onChange={(e) => setStepAmount(Math.max(1, parseInt(e.target.value) || 1))}
                 className="w-16 h-9 text-center"
               />
+              <label htmlFor="dt-selector-step-unit" className="sr-only">
+                Step unit
+              </label>
               <Select value={stepUnit} onValueChange={(v) => setStepUnit(v as TimeUnit)}>
                 <SelectTrigger className="w-16 sm:w-28 h-9">
                   <span className="sm:hidden">
@@ -175,14 +181,21 @@ export function DateTimeLocationSelector({
               variant="outline"
               size="icon"
               onClick={() => handleStep('forward')}
-              title="Step Forward"
+              aria-label="Step Forward"
             >
               <ChevronRight className="h-4 w-4" />
             </Button>
 
             <div className="ml-auto flex items-center gap-0 sm:gap-1">
               {showNowButton ? (
-                <Button type="button" variant="ghost" size="sm" onClick={handleNow} className="h-9" title="Go to now">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleNow}
+                  className="h-9"
+                  aria-label="Go to now"
+                >
                   <RotateCcw className="md:mr-2 h-3 w-3" />
                   <span className="hidden md:inline">Now</span>
                 </Button>
@@ -193,7 +206,7 @@ export function DateTimeLocationSelector({
                   size="sm"
                   onClick={handleReset}
                   className="h-9"
-                  title="Reset to original"
+                  aria-label="Reset to original"
                 >
                   <RotateCcw className="md:mr-2 h-3 w-3" />
                   <span className="hidden md:inline">Reset</span>
@@ -204,7 +217,7 @@ export function DateTimeLocationSelector({
                 variant="ghost"
                 size="icon"
                 onClick={() => setIsExpanded(!isExpanded)}
-                title={isExpanded ? 'Collapse' : 'Expand'}
+                aria-label={isExpanded ? 'Collapse' : 'Expand'}
               >
                 {isExpanded ? (
                   <ChevronLeft className="h-4 w-4 rotate-90" />
@@ -221,18 +234,18 @@ export function DateTimeLocationSelector({
               {/* Date & Time Inputs */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <label className="text-sm font-medium flex items-center gap-2">
+                  <label htmlFor="dt-selector-date" className="text-sm font-medium flex items-center gap-2">
                     <Calendar className="h-4 w-4 text-muted-foreground" />
                     Date
                   </label>
-                  <Input type="date" {...form.register('date')} />
+                  <Input id="dt-selector-date" type="date" {...form.register('date')} />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm font-medium flex items-center gap-2">
+                  <label htmlFor="dt-selector-time" className="text-sm font-medium flex items-center gap-2">
                     <Clock className="h-4 w-4 text-muted-foreground" />
                     Time
                   </label>
-                  <Input type="time" {...form.register('time')} />
+                  <Input id="dt-selector-time" type="time" {...form.register('time')} />
                 </div>
               </div>
 

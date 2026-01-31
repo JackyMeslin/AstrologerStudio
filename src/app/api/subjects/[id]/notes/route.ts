@@ -4,6 +4,7 @@ import { getSession } from '@/lib/security/session'
 import { logger } from '@/lib/logging/server'
 import { updateSubjectNotesSchema, validateBody, formatValidationErrors } from '@/lib/validation/api'
 import { checkRateLimit, rateLimitExceededResponse, rateLimitHeaders, RATE_LIMITS } from '@/lib/security/rate-limit'
+import { CACHE_CONTROL, mergeCacheControlHeaders } from '@/lib/security/cache-control'
 
 interface RouteParams {
   params: Promise<{ id: string }>
@@ -38,7 +39,12 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
   return NextResponse.json(
     { notes: subject.notes || '' },
-    { headers: rateLimitHeaders(rateLimitResult, RATE_LIMITS.standard.limit) },
+    {
+      headers: mergeCacheControlHeaders(
+        rateLimitHeaders(rateLimitResult, RATE_LIMITS.standard.limit),
+        CACHE_CONTROL.userDataShort,
+      ),
+    },
   )
 }
 
@@ -82,7 +88,16 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
 
     logger.debug('Updated subject notes:', { id, userId: session.userId })
 
-    return NextResponse.json({ notes }, { headers: rateLimitHeaders(rateLimitResult, RATE_LIMITS.strict.limit) })
+    // Mutations should never be cached
+    return NextResponse.json(
+      { notes },
+      {
+        headers: mergeCacheControlHeaders(
+          rateLimitHeaders(rateLimitResult, RATE_LIMITS.strict.limit),
+          CACHE_CONTROL.noStore,
+        ),
+      },
+    )
   } catch (error) {
     logger.error('Error updating subject notes:', error)
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })

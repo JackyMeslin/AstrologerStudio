@@ -3,14 +3,11 @@
 import { ChartErrorState } from '@/components/ChartErrorState'
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { getSubjectById } from '@/actions/subjects'
 import { getTransitChart, getNatalChart } from '@/actions/astrology'
 import { TransitChart } from '@/components/charts/TransitChart'
-import { Button } from '@/components/ui/button'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
 import { Skeleton } from '@/components/ui/skeleton'
 import type { Subject } from '@/types/subjects'
-import { useTheme } from '@/components/ThemeProvider'
 import { DateTimeLocationSelector } from '@/components/ui/DateTimeLocationSelector'
 import type { LocationFormValues } from '@/components/SubjectLocationFields'
 import { Tabs } from '@/components/ui/tabs'
@@ -18,38 +15,31 @@ import { ChartTabsList } from '@/components/charts/ChartTabs'
 import { isAIGloballyEnabled } from '@/lib/ai/feature-flags'
 import { SaveChartButton } from '@/components/SaveChartButton'
 import { ExportTransitPDFDialog } from '@/components/pdf'
-import { useDateFormat, useTimeFormat } from '@/hooks/useDateFormat'
+import { useChartPreferences } from '@/hooks/useChartPreferences'
 import { formatDisplayDate, formatDisplayTime } from '@/lib/utils/date'
 import { generateChartId, deleteInterpretation } from '@/lib/cache/interpretations'
 import { useCallback, useMemo } from 'react'
+import { useChartSubject } from '@/hooks/useChartSubject'
+import { useChartTheme } from '@/hooks/useChartTheme'
+import { ChartViewWrapper } from '@/components/charts/ChartViewWrapper'
 
 interface Props {
   subjectId: string
 }
 
 export function TransitChartView({ subjectId }: Props) {
-  const router = useRouter()
   const searchParams = useSearchParams()
-  const { resolvedTheme } = useTheme()
-  const chartTheme = resolvedTheme === 'dark' ? 'dark' : 'classic'
+  const chartTheme = useChartTheme()
   const [transitParams, setTransitParams] = useState<{ dateTime: string; location: LocationFormValues } | null>(null)
   const [notes, setNotes] = useState('')
   const [notesGeneratedForDatetime, setNotesGeneratedForDatetime] = useState<string | null>(null)
-  const dateFormat = useDateFormat()
-  const timeFormat = useTimeFormat()
+  const { dateFormat, timeFormat } = useChartPreferences()
   // Fixed initial time to prevent infinite re-rendering
   const [initialNow] = useState(() => new Date())
 
   const dateParam = searchParams.get('date')
 
-  const {
-    data: subject,
-    isLoading: isLoadingSubject,
-    error: subjectError,
-  } = useQuery({
-    queryKey: ['subject', subjectId],
-    queryFn: () => getSubjectById(subjectId),
-  })
+  const { data: subject, isLoading: isLoadingSubject, error: subjectError } = useChartSubject(subjectId)
 
   // Fetch Natal Data for the main subject
   const { data: natalData } = useQuery({
@@ -152,112 +142,95 @@ export function TransitChartView({ subjectId }: Props) {
     }
   }, [chartId])
 
-  if (isLoadingSubject) {
-    return (
-      <div className="space-y-8 p-0 md:p-2">
-        <Skeleton className="h-12 w-1/3" />
-        <Skeleton className="h-[500px] w-full" />
-      </div>
-    )
-  }
-
-  if (subjectError || !subject) {
-    return (
-      <div className="p-8 text-center">
-        <h2 className="text-2xl font-bold text-destructive">Subject not found</h2>
-        <Button onClick={() => router.back()} className="mt-4">
-          Go Back
-        </Button>
-      </div>
-    )
-  }
-
   return (
-    <Tabs defaultValue="chart" className="space-y-3 p-0 md:p-2 w-full">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">Transits for {subject.name}</h1>
-            <p className="text-muted-foreground">
-              Transits at {formatDisplayDate(effectiveTransitDate, dateFormat)}{' '}
-              {formatDisplayTime(effectiveTransitDate, timeFormat)} • {effectiveTransitLocation.city},{' '}
-              {effectiveTransitLocation.nation}
-            </p>
+    <ChartViewWrapper isLoading={isLoadingSubject} error={subjectError} hasSubject={!!subject}>
+      {subject && (
+        <Tabs defaultValue="chart" className="space-y-3 p-0 md:p-2 w-full">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <div>
+                <h1 className="text-3xl font-bold tracking-tight">Transits for {subject.name}</h1>
+                <p className="text-muted-foreground">
+                  Transits at {formatDisplayDate(effectiveTransitDate, dateFormat)}{' '}
+                  {formatDisplayTime(effectiveTransitDate, timeFormat)} • {effectiveTransitLocation.city},{' '}
+                  {effectiveTransitLocation.nation}
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 ml-auto">
+              <ChartTabsList hasData={true} hasInterpretation={isAIGloballyEnabled()} />
+              {chartData && natalData && transitData && (
+                <SaveChartButton
+                  chartParams={{
+                    type: 'transit',
+                    subjectId,
+                    transitDate: effectiveTransitDate,
+                    transitLocation: {
+                      city: effectiveTransitLocation.city ?? '',
+                      nation: effectiveTransitLocation.nation ?? '',
+                      latitude: effectiveTransitLocation.latitude ?? 0,
+                      longitude: effectiveTransitLocation.longitude ?? 0,
+                      timezone: effectiveTransitLocation.timezone ?? '0',
+                    },
+                  }}
+                  chartType="transit"
+                  defaultName={`${natalData.chart_data.subject.name}'s Transit Chart @ ${formatDisplayDate(effectiveTransitDate, dateFormat)}`}
+                  notes={notes}
+                  onSaved={handleChartSaved}
+                />
+              )}
+              {chartData && natalData && transitData && (
+                <ExportTransitPDFDialog
+                  chartData={chartData.chart_data}
+                  natalChartData={natalData.chart_data}
+                  transitChartData={transitData.chart_data}
+                  aspects={chartData.chart_data.aspects}
+                  chartWheelHtml={chartData.chart_wheel}
+                  notes={notes}
+                  size="icon"
+                />
+              )}
+            </div>
           </div>
-        </div>
-        <div className="flex items-center gap-2 ml-auto">
-          <ChartTabsList hasData={true} hasInterpretation={isAIGloballyEnabled()} />
-          {chartData && natalData && transitData && (
-            <SaveChartButton
-              chartParams={{
-                type: 'transit',
-                subjectId,
-                transitDate: effectiveTransitDate,
-                transitLocation: {
-                  city: effectiveTransitLocation.city ?? '',
-                  nation: effectiveTransitLocation.nation ?? '',
-                  latitude: effectiveTransitLocation.latitude ?? 0,
-                  longitude: effectiveTransitLocation.longitude ?? 0,
-                  timezone: effectiveTransitLocation.timezone ?? '0',
-                },
-              }}
-              chartType="transit"
-              defaultName={`${natalData.chart_data.subject.name}'s Transit Chart @ ${formatDisplayDate(effectiveTransitDate, dateFormat)}`}
-              notes={notes}
-              onSaved={handleChartSaved}
-            />
-          )}
-          {chartData && natalData && transitData && (
-            <ExportTransitPDFDialog
-              chartData={chartData.chart_data}
-              natalChartData={natalData.chart_data}
-              transitChartData={transitData.chart_data}
-              aspects={chartData.chart_data.aspects}
-              chartWheelHtml={chartData.chart_wheel}
-              notes={notes}
-              size="icon"
-            />
-          )}
-        </div>
-      </div>
 
-      <DateTimeLocationSelector
-        defaultDateTime={baseDateIso}
-        defaultLocation={{
-          city: subject.city,
-          nation: subject.nation,
-          latitude: subject.latitude,
-          longitude: subject.longitude,
-          timezone: subject.timezone,
-        }}
-        onCalculate={setTransitParams}
-        submitLabel="Update Transits"
-      />
-
-      {isLoadingChart && !chartData ? (
-        <div className="space-y-8">
-          <Skeleton className="h-[500px] w-full" />
-          <Skeleton className="h-[300px] w-full" />
-        </div>
-      ) : chartError ? (
-        <ChartErrorState error={chartError} onRetry={() => refetchChart()} />
-      ) : chartData && natalData && transitData ? (
-        <div className={isFetchingChart ? 'opacity-50 transition-opacity duration-200' : ''}>
-          <TransitChart
-            data={chartData}
-            natalData={natalData}
-            transitData={transitData}
-            notes={notes}
-            onNotesChange={handleNotesChange}
-            isDataStale={isDataStale}
-            staleDataLabel={
-              notesGeneratedForDatetime
-                ? `Transits for ${formatDisplayDate(notesGeneratedForDatetime, dateFormat)} ${formatDisplayTime(notesGeneratedForDatetime, timeFormat)}`
-                : undefined
-            }
+          <DateTimeLocationSelector
+            defaultDateTime={baseDateIso}
+            defaultLocation={{
+              city: subject.city,
+              nation: subject.nation,
+              latitude: subject.latitude,
+              longitude: subject.longitude,
+              timezone: subject.timezone,
+            }}
+            onCalculate={setTransitParams}
+            submitLabel="Update Transits"
           />
-        </div>
-      ) : null}
-    </Tabs>
+
+          {isLoadingChart && !chartData ? (
+            <div className="space-y-4">
+              <Skeleton className="h-[600px] w-full" />
+            </div>
+          ) : chartError ? (
+            <ChartErrorState error={chartError} onRetry={() => refetchChart()} />
+          ) : chartData && natalData && transitData ? (
+            <div className={isFetchingChart ? 'opacity-50 transition-opacity duration-200' : ''}>
+              <TransitChart
+                data={chartData}
+                natalData={natalData}
+                transitData={transitData}
+                notes={notes}
+                onNotesChange={handleNotesChange}
+                isDataStale={isDataStale}
+                staleDataLabel={
+                  notesGeneratedForDatetime
+                    ? `Transits for ${formatDisplayDate(notesGeneratedForDatetime, dateFormat)} ${formatDisplayTime(notesGeneratedForDatetime, timeFormat)}`
+                    : undefined
+                }
+              />
+            </div>
+          ) : null}
+        </Tabs>
+      )}
+    </ChartViewWrapper>
   )
 }

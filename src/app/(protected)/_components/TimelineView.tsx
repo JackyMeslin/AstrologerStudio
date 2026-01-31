@@ -11,12 +11,8 @@ import { formatPlanetName } from '@/lib/astrology/planet-formatting'
 import { ASPECT_SYMBOLS } from '@/lib/astrology/aspects'
 import { getCelestialPointIndex, isChartAngle, PLANET_ICONS } from '@/lib/astrology/celestial-points'
 import { useTransitData } from '@/hooks/useTransitData'
-import { clearTransitCache } from '@/lib/cache/transits'
-// import { Button } from '@/components/ui/button'
-// import { RefreshCw } from 'lucide-react'
 import { StartDatePicker } from '@/components/StartDatePicker'
 import { format } from 'date-fns'
-import { clientLogger } from '@/lib/logging/client'
 
 import type { ChartPreferencesData } from '@/actions/preferences'
 
@@ -69,12 +65,6 @@ export function TimelineView({
     longitude: number
     timezone: string
   } | null>(null)
-
-  /* -------------------------------------------------------------------------
-   * RESTORED LOGIC START
-   * ------------------------------------------------------------------------- */
-  const [refreshTrigger, setRefreshTrigger] = useState(0)
-  const [_isRefreshing, setIsRefreshing] = useState(false)
 
   // Generate planet options from user preferences
   const allPlanetOptions = useMemo<FilterOption[]>(() => {
@@ -211,7 +201,6 @@ export function TimelineView({
     natalSubject: cleanSubject,
     startDate,
     endDate,
-    refreshTrigger,
     chartOptions,
   })
 
@@ -230,22 +219,6 @@ export function TimelineView({
     }
     router.push(`${pathname}?${params.toString()}`)
   }
-
-  const _handleRefreshCache = async () => {
-    setIsRefreshing(true)
-    try {
-      await clearTransitCache()
-      setRefreshTrigger((prev) => prev + 1)
-    } catch (error) {
-      clientLogger.error('Failed to clear cache:', error)
-    } finally {
-      setIsRefreshing(false)
-    }
-  }
-
-  /* -------------------------------------------------------------------------
-   * RESTORED LOGIC END
-   * ------------------------------------------------------------------------- */
 
   return (
     <div className="space-y-4 p-0 md:p-2">
@@ -273,7 +246,7 @@ export function TimelineView({
         {/* Actions in header */}
         <div className="flex items-center gap-1.5 shrink-0">
           {isLoading && progress.total > 0 && (
-            <div className="text-sm text-muted-foreground animate-pulse whitespace-nowrap">
+            <div className="text-sm text-muted-foreground animate-pulse whitespace-nowrap" role="status" aria-live="polite">
               {Math.round((progress.loaded / progress.total) * 100)}%
             </div>
           )}

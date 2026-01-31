@@ -12,10 +12,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { validateResetToken, resetPassword } from '@/actions/auth'
 import Link from 'next/link'
 import { ArrowLeft, KeyRound, CheckCircle, AlertCircle, Loader2 } from 'lucide-react'
+import { MIN_PASSWORD_LENGTH } from '@/lib/validation/password'
 
 const resetPasswordSchema = z
   .object({
-    password: z.string().min(8, 'Password must be at least 8 characters'),
+    password: z.string().min(MIN_PASSWORD_LENGTH, `Password must be at least ${MIN_PASSWORD_LENGTH} characters`),
     confirmPassword: z.string().min(1, 'Please confirm your password'),
   })
   .refine((data) => data.password === data.confirmPassword, {

@@ -85,6 +85,29 @@ function formatPosition(point: Point | undefined): string {
   return `${Math.floor(point.position)}° ${point.sign}`
 }
 
+// Helper to group dates into months (extracted for testability and memoization)
+export interface MonthGroup {
+  key: string
+  label: string
+  count: number
+}
+
+export function groupDatesIntoMonths(dates: string[]): MonthGroup[] {
+  const months: MonthGroup[] = []
+  dates.forEach((date) => {
+    const d = new Date(date)
+    const key = format(d, 'yyyy-MM')
+    const label = format(d, 'MMMM yyyy')
+    const last = months[months.length - 1]
+    if (last && last.key === key) {
+      last.count++
+    } else {
+      months.push({ key, label, count: 1 })
+    }
+  })
+  return months
+}
+
 interface AspectRow {
   id: string
   p1_name: string
@@ -213,6 +236,9 @@ export function TimelineEventTable({
     setCurrentPage(1)
   }, [totalRows])
 
+  // Memoize month groupings to avoid recalculating on every render
+  const monthGroups = useMemo(() => groupDatesIntoMonths(dates), [dates])
+
   return (
     <TooltipProvider delayDuration={0}>
       <div className="space-y-4">
@@ -249,6 +275,7 @@ export function TimelineEventTable({
                 className="h-8 w-8 rounded-none border-r"
                 onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                 disabled={currentPage === 1}
+                aria-label="Previous page"
               >
                 <ChevronLeft className="h-4 w-4" />
               </Button>
@@ -263,6 +290,7 @@ export function TimelineEventTable({
                 className="h-8 w-8 rounded-none border-l"
                 onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
                 disabled={currentPage === totalPages || totalPages === 0}
+                aria-label="Next page"
               >
                 <ChevronRight className="h-4 w-4" />
               </Button>
@@ -282,29 +310,15 @@ export function TimelineEventTable({
                     Month
                   </div>
                   <div className="flex flex-1">
-                    {(() => {
-                      const months: { key: string; label: string; count: number }[] = []
-                      dates.forEach((date) => {
-                        const d = new Date(date)
-                        const key = format(d, 'yyyy-MM')
-                        const label = format(d, 'MMMM yyyy')
-                        const last = months[months.length - 1]
-                        if (last && last.key === key) {
-                          last.count++
-                        } else {
-                          months.push({ key, label, count: 1 })
-                        }
-                      })
-                      return months.map((month) => (
-                        <div
-                          key={month.key}
-                          className="flex flex-none items-center justify-center border-r px-2 py-1 text-xs font-semibold truncate"
-                          style={{ width: `${month.count * 2.5}rem` }} // w-10 is 2.5rem
-                        >
-                          {month.label}
-                        </div>
-                      ))
-                    })()}
+                    {monthGroups.map((month) => (
+                      <div
+                        key={month.key}
+                        className="flex flex-none items-center justify-center border-r px-2 py-1 text-xs font-semibold truncate"
+                        style={{ width: `${month.count * 2.5}rem` }} // w-10 is 2.5rem
+                      >
+                        {month.label}
+                      </div>
+                    ))}
                   </div>
                 </div>
 

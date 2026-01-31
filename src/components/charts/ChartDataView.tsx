@@ -1,19 +1,29 @@
 'use client'
 
+import dynamic from 'next/dynamic'
 import { ChartResponse, HouseComparison, Aspect } from '@/types/astrology'
 import { Card, CardContent } from '@/components/ui/card'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
-import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis } from 'recharts'
+import { ChartLoadingSkeleton } from '@/components/ui/chart-loading-skeleton'
 import { useTheme } from '@/components/ThemeProvider'
-import { ChartConfig, ChartContainer, ChartTooltip, ChartLegend, ChartLegendContent } from '@/components/ui/chart'
+import type { ChartConfig } from '@/components/ui/chart'
 import { HouseComparisonCard } from './HouseComparisonCard'
 import { ChartHighlights } from './ChartHighlights'
 import { KeyAspectsSection } from './KeyAspectsSection'
 import { LunarPhaseCard } from './LunarPhaseCard'
 import { CompatibilityScoreCard } from './CompatibilityScoreCard'
 import { getRelevantAspects, normalizeChartType } from '@/lib/astrology/chart-highlights'
-import { processChartData, getLunarPhaseData, CHART_THEME_COLORS, ChartPoint } from '@/lib/astrology/chart-data'
+import { processChartData, getLunarPhaseData, CHART_THEME_COLORS, getSubjectPoint } from '@/lib/astrology/chart-data'
 import { Flame, Sparkles, Globe, Moon } from 'lucide-react'
+
+// Dynamically import the radar chart component to avoid loading recharts in the initial bundle
+const RadarChartContent = dynamic(
+  () => import('@/components/charts/RadarChartContent').then((mod) => mod.RadarChartContent),
+  {
+    ssr: false,
+    loading: () => <ChartLoadingSkeleton height={300} />,
+  },
+)
 
 /**
  * Helper to find which partner house a planet falls into
@@ -121,77 +131,6 @@ export function ChartDataView({
       },
     }),
   } satisfies ChartConfig
-
-  /**
-   * Custom tooltip component for radar charts.
-   *
-   * Displays detailed breakdown of points in each category,
-   * showing both primary and secondary chart data when available.
-   */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const CustomTooltip = ({ active, payload }: any) => {
-    if (active && payload && payload.length) {
-      const data = payload[0].payload
-      return (
-        <div className="grid min-w-[12rem] items-start gap-1.5 rounded-lg border border-border/50 bg-background px-3 py-2 text-sm shadow-xl">
-          <div className="flex w-full flex-col gap-2">
-            {/* Primary Subject */}
-            <div className="flex flex-col gap-1">
-              <div className="flex items-center gap-2 font-medium border-b pb-1">
-                <div className="h-2 w-2 rounded-full" style={{ backgroundColor: 'var(--color-primary)' }} />
-                <span className="capitalize">{data.subject}</span>
-                {secondaryData && (
-                  <>
-                    <span className="text-muted-foreground">-</span>
-                    <span>{primaryLabel}</span>
-                  </>
-                )}
-                <span className="ml-auto font-bold">{Math.round(data.percentage)}%</span>
-              </div>
-              <div className="flex flex-col gap-0.5 pl-4">
-                {data.points.length > 0 ? (
-                  data.points.map((p: ChartPoint) => (
-                    <div key={p.name} className="flex items-center gap-2 text-muted-foreground text-xs">
-                      <span className="w-4 text-center">{p.emoji}</span>
-                      <span>{p.name.replace(/_/g, ' ')}</span>
-                    </div>
-                  ))
-                ) : (
-                  <span className="text-muted-foreground text-xs italic">No points</span>
-                )}
-              </div>
-            </div>
-
-            {/* Secondary Subject */}
-            {secondaryData && data.secondaryPercentage !== undefined && (
-              <div className="flex flex-col gap-1">
-                <div className="flex items-center gap-2 font-medium border-b pb-1">
-                  <div className="h-2 w-2 rounded-full" style={{ backgroundColor: 'var(--color-secondary)' }} />
-                  <span className="capitalize">{data.subject}</span>
-                  <span className="text-muted-foreground">-</span>
-                  <span>{secondaryLabel}</span>
-                  <span className="ml-auto font-bold">{Math.round(data.secondaryPercentage)}%</span>
-                </div>
-                <div className="flex flex-col gap-0.5 pl-4">
-                  {data.secondaryPoints && data.secondaryPoints.length > 0 ? (
-                    data.secondaryPoints.map((p: ChartPoint) => (
-                      <div key={p.name} className="flex items-center gap-2 text-muted-foreground text-xs">
-                        <span className="w-4 text-center">{p.emoji}</span>
-                        <span>{p.name.replace(/_/g, ' ')}</span>
-                      </div>
-                    ))
-                  ) : (
-                    <span className="text-muted-foreground text-xs italic">No points</span>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      )
-    }
-    return null
-  }
 
   // Check if this is a synastry chart with relationship score
   const isSynastry = processed.effectiveChartType === 'synastry' || chartType === 'synastry'
@@ -314,35 +253,15 @@ export function ChartDataView({
           </div>
           <Card className="shadow-sm">
             <CardContent className="pt-6">
-              <ChartContainer config={chartConfig} className="mx-auto aspect-square max-h-[300px]">
-                <RadarChart
-                  cx="50%"
-                  cy="50%"
-                  outerRadius="70%"
-                  data={processed.elementsData}
-                  margin={{ top: secondaryData ? -40 : 0, bottom: secondaryData ? -10 : 0 }}
-                >
-                  <PolarGrid stroke={processed.chartColors.grid} />
-                  <PolarAngleAxis dataKey="subject" tick={{ fill: processed.chartColors.text }} />
-                  <PolarRadiusAxis angle={30} domain={[0, 100]} tick={false} axisLine={false} />
-                  <Radar
-                    dataKey="primary"
-                    fill={processed.radarColors.primaryFill}
-                    stroke={processed.radarColors.primaryStroke}
-                    fillOpacity={0.6}
-                  />
-                  {secondaryData && (
-                    <Radar
-                      dataKey="secondary"
-                      fill={processed.radarColors.secondaryFill}
-                      stroke={processed.radarColors.secondaryStroke}
-                      fillOpacity={0.6}
-                    />
-                  )}
-                  <ChartTooltip cursor={false} content={<CustomTooltip />} />
-                  {secondaryData && <ChartLegend className="mt-8" content={<ChartLegendContent />} />}
-                </RadarChart>
-              </ChartContainer>
+              <RadarChartContent
+                data={processed.elementsData}
+                chartConfig={chartConfig}
+                chartColors={processed.chartColors}
+                radarColors={processed.radarColors}
+                hasSecondaryData={!!secondaryData}
+                primaryLabel={primaryLabel}
+                secondaryLabel={secondaryLabel}
+              />
             </CardContent>
           </Card>
         </div>
@@ -354,39 +273,15 @@ export function ChartDataView({
           </div>
           <Card className="shadow-sm">
             <CardContent className="pt-6">
-              <ChartContainer config={chartConfig} className="mx-auto aspect-square max-h-[300px]">
-                <RadarChart
-                  cx="50%"
-                  cy="50%"
-                  outerRadius="70%"
-                  data={processed.qualitiesData}
-                  margin={{ top: secondaryData ? -40 : 0, bottom: secondaryData ? -10 : 0 }}
-                >
-                  <PolarGrid stroke={processed.chartColors.grid} />
-                  <PolarAngleAxis dataKey="subject" tick={{ fill: processed.chartColors.text }} />
-                  <PolarRadiusAxis angle={30} domain={[0, 100]} tick={false} axisLine={false} />
-                  <Radar
-                    dataKey="primary"
-                    fill={processed.radarColors.primaryFill}
-                    stroke={processed.radarColors.primaryStroke}
-                    fillOpacity={0.6}
-                    dot={{
-                      r: 4,
-                      fillOpacity: 1,
-                    }}
-                  />
-                  {secondaryData && (
-                    <Radar
-                      dataKey="secondary"
-                      fill={processed.radarColors.secondaryFill}
-                      stroke={processed.radarColors.secondaryStroke}
-                      fillOpacity={0.6}
-                    />
-                  )}
-                  <ChartTooltip cursor={false} content={<CustomTooltip />} />
-                  {secondaryData && <ChartLegend className="mt-8" content={<ChartLegendContent />} />}
-                </RadarChart>
-              </ChartContainer>
+              <RadarChartContent
+                data={processed.qualitiesData}
+                chartConfig={chartConfig}
+                chartColors={processed.chartColors}
+                radarColors={processed.radarColors}
+                hasSecondaryData={!!secondaryData}
+                primaryLabel={primaryLabel}
+                secondaryLabel={secondaryLabel}
+              />
             </CardContent>
           </Card>
         </div>
@@ -478,8 +373,7 @@ export function ChartDataView({
                       <tbody className="[&_tr:last-child]:border-0">
                         {processed.sortedActivePoints.map((pointKey) => {
                           const key = pointKey.toLowerCase().replace(/_/g, '_')
-                          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                          const point = (processed.primarySubject as any)[key]
+                          const point = getSubjectPoint(processed.primarySubject, key)
                           if (!point || !point.sign) return null
                           return (
                             <tr
@@ -552,8 +446,7 @@ export function ChartDataView({
                       <tbody className="[&_tr:last-child]:border-0">
                         {processed.sortedSecondaryActivePoints.map((pointKey) => {
                           const key = pointKey.toLowerCase().replace(/_/g, '_')
-                          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                          const point = (processed.secondaryChartData!.subject as any)[key]
+                          const point = getSubjectPoint(processed.secondaryChartData!.subject, key)
                           if (!point || !point.sign) return null
                           return (
                             <tr
@@ -621,8 +514,7 @@ export function ChartDataView({
                   <tbody className="[&_tr:last-child]:border-0">
                     {processed.sortedActivePoints.map((pointKey) => {
                       const key = pointKey.toLowerCase().replace(/_/g, '_')
-                      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                      const point = (processed.primarySubject as any)[key]
+                      const point = getSubjectPoint(processed.primarySubject, key)
                       if (!point || !point.sign) return null
                       return (
                         <tr

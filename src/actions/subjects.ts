@@ -8,10 +8,64 @@ import { prisma } from '@/lib/db/prisma'
 import { revalidatePath } from 'next/cache'
 import { mapPrismaSubjectToSubject } from '@/lib/db/mappers'
 import { logger } from '@/lib/logging/server'
-import { withAuth, NotFoundError, ForbiddenError } from '@/lib/security/auth'
+import { withAuth, NotFoundError, ForbiddenError, ValidationError } from '@/lib/security/auth'
 import { parseBirthDateTime } from '@/lib/utils/date'
 import { canCreateSubject, getPlanLimits } from '@/lib/subscription/plan-limits' // DODO PAYMENTS: Plan limits
-import type { CreateSubjectInput, UpdateSubjectInput, Subject } from '@/types/subjects'
+import {
+  createSubjectSchema,
+  updateSubjectSchema,
+  type CreateSubjectInput,
+  type UpdateSubjectInput,
+} from '@/lib/validation/subject'
+import type { Subject } from '@/types/subjects'
+import { z, ZodError } from 'zod'
+import { getErrorMessage } from '@/lib/utils/error'
+
+/**
+ * Parse Zod validation errors into user-friendly messages
+ */
+function formatZodErrors(error: ZodError): string[] {
+  return error.issues.map((e) => {
+    const path = e.path.join('.')
+    return path ? `${path}: ${e.message}` : e.message
+  })
+}
+
+/**
+ * Validate input using Zod schema and throw ValidationError on failure
+ */
+function validateCreateSubjectInput(input: unknown): CreateSubjectInput {
+  try {
+    return createSubjectSchema.parse(input)
+  } catch (error) {
+    if (error instanceof ZodError) {
+      const errors = formatZodErrors(error)
+      throw new ValidationError('Invalid subject data', errors)
+    }
+    throw error
+  }
+}
+
+/**
+ * Validate input using Zod schema and throw ValidationError on failure
+ */
+function validateUpdateSubjectInput(input: unknown): UpdateSubjectInput {
+  try {
+    return updateSubjectSchema.parse(input)
+  } catch (error) {
+    if (error instanceof ZodError) {
+      const errors = formatZodErrors(error)
+      throw new ValidationError('Invalid subject data', errors)
+    }
+    throw error
+  }
+}
+
+/** Schema for validating a single subject ID */
+const subjectIdSchema = z.string().uuid('Invalid subject ID format')
+
+/** Schema for validating an array of subject IDs */
+const subjectIdsSchema = z.array(z.string().uuid('Invalid subject ID format')).min(1, 'At least one ID is required')
 
 /**
  * Get all subjects owned by the current user
@@ -59,9 +113,13 @@ export async function getSubjectById(id: string): Promise<Subject | null> {
  *
  * @param data - Subject creation data
  * @returns Newly created subject
- * @throws Error if user is not authenticated or data is invalid
+ * @throws ValidationError if data is invalid
+ * @throws Error if user is not authenticated
  */
 export async function createSubject(data: CreateSubjectInput): Promise<Subject> {
+  // Validate input at runtime before any processing
+  const validatedData = validateCreateSubjectInput(data)
+
   return withAuth(async (session) => {
     // DODO PAYMENTS: Check subject limit for free plan
     const user = await prisma.user.findUnique({
@@ -82,33 +140,33 @@ export async function createSubject(data: CreateSubjectInput): Promise<Subject> 
     }
 
     // Validate birth date
-    if (!data.birthDate || isNaN(Date.parse(data.birthDate))) {
-      throw new Error('Invalid birth date')
+    if (!validatedData.birthDate || isNaN(Date.parse(validatedData.birthDate))) {
+      throw new ValidationError('Invalid birth date', ['birthDate: Required'])
     }
 
     // Parse birth datetime using centralized utility
     let birthDatetime: Date
     try {
-      birthDatetime = parseBirthDateTime(data.birthDate, data.birthTime)
+      birthDatetime = parseBirthDateTime(validatedData.birthDate, validatedData.birthTime)
       logger.debug('Creating subject with birthDatetime:', birthDatetime.toISOString())
     } catch (error) {
       logger.error('Date parsing error:', error)
-      throw new Error('Invalid birth date/time format')
+      throw new ValidationError('Invalid birth date/time format', ['birthDate: Invalid format'])
     }
 
     const subject = await prisma.subject.create({
       data: {
-        name: data.name,
+        name: validatedData.name,
         birthDatetime,
-        city: data.city,
-        nation: data.nation,
-        latitude: data.latitude,
-        longitude: data.longitude,
-        timezone: data.timezone,
-        rodensRating: data.rodens_rating,
+        city: validatedData.city,
+        nation: validatedData.nation,
+        latitude: validatedData.latitude,
+        longitude: validatedData.longitude,
+        timezone: validatedData.timezone,
+        rodensRating: validatedData.rodens_rating,
 
-        tags: data.tags ? JSON.stringify(data.tags) : null,
-        notes: data.notes,
+        tags: validatedData.tags ? JSON.stringify(validatedData.tags) : null,
+        notes: validatedData.notes,
         ownerId: session.userId,
       },
     })
@@ -127,34 +185,38 @@ export async function createSubject(data: CreateSubjectInput): Promise<Subject> 
  *
  * @param data - Subject creation data
  * @returns Existing or newly created subject
- * @throws Error if user is not authenticated or data is invalid
+ * @throws ValidationError if data is invalid
+ * @throws Error if user is not authenticated
  */
 export async function findOrCreateSubject(data: CreateSubjectInput): Promise<Subject> {
+  // Validate input at runtime before any processing
+  const validatedData = validateCreateSubjectInput(data)
+
   return withAuth(async (session) => {
-    // Parse birth datetime first
-    if (!data.birthDate || isNaN(Date.parse(data.birthDate))) {
-      throw new Error('Invalid birth date')
+    // Validate birth date
+    if (!validatedData.birthDate || isNaN(Date.parse(validatedData.birthDate))) {
+      throw new ValidationError('Invalid birth date', ['birthDate: Required'])
     }
 
     let birthDatetime: Date
     try {
-      birthDatetime = parseBirthDateTime(data.birthDate, data.birthTime)
+      birthDatetime = parseBirthDateTime(validatedData.birthDate, validatedData.birthTime)
     } catch (error) {
       logger.error('Date parsing error:', error)
-      throw new Error('Invalid birth date/time format')
+      throw new ValidationError('Invalid birth date/time format', ['birthDate: Invalid format'])
     }
 
     // Check for existing subject with same name and birthDatetime
     const existing = await prisma.subject.findFirst({
       where: {
         ownerId: session.userId,
-        name: data.name,
+        name: validatedData.name,
         birthDatetime,
       },
     })
 
     if (existing) {
-      logger.info(`Found existing subject: ${existing.id} for name="${data.name}"`)
+      logger.info(`Found existing subject: ${existing.id} for name="${validatedData.name}"`)
       return mapPrismaSubjectToSubject(existing)
     }
 
@@ -178,16 +240,16 @@ export async function findOrCreateSubject(data: CreateSubjectInput): Promise<Sub
 
     const subject = await prisma.subject.create({
       data: {
-        name: data.name,
+        name: validatedData.name,
         birthDatetime,
-        city: data.city,
-        nation: data.nation,
-        latitude: data.latitude,
-        longitude: data.longitude,
-        timezone: data.timezone,
-        rodensRating: data.rodens_rating,
-        tags: data.tags ? JSON.stringify(data.tags) : null,
-        notes: data.notes,
+        city: validatedData.city,
+        nation: validatedData.nation,
+        latitude: validatedData.latitude,
+        longitude: validatedData.longitude,
+        timezone: validatedData.timezone,
+        rodensRating: validatedData.rodens_rating,
+        tags: validatedData.tags ? JSON.stringify(validatedData.tags) : null,
+        notes: validatedData.notes,
         ownerId: session.userId,
       },
     })
@@ -203,14 +265,18 @@ export async function findOrCreateSubject(data: CreateSubjectInput): Promise<Sub
  *
  * @param data - Subject update data (must include id)
  * @returns Updated subject
- * @throws Error if user is not authenticated, unauthorized, or data is invalid
+ * @throws ValidationError if data is invalid
+ * @throws Error if user is not authenticated or unauthorized
  */
 export async function updateSubject(data: UpdateSubjectInput): Promise<Subject> {
+  // Validate input at runtime before any processing
+  const validatedData = validateUpdateSubjectInput(data)
+
   return withAuth(async (session) => {
     // Verify ownership with single optimized query
     const existing = await prisma.subject.findFirst({
       where: {
-        id: data.id,
+        id: validatedData.id,
         ownerId: session.userId,
       },
       select: { id: true },
@@ -223,28 +289,28 @@ export async function updateSubject(data: UpdateSubjectInput): Promise<Subject> 
     let birthDatetime: Date | undefined
 
     // Only parse birth date if provided
-    if (data.birthDate) {
+    if (validatedData.birthDate) {
       try {
-        birthDatetime = parseBirthDateTime(data.birthDate, data.birthTime)
+        birthDatetime = parseBirthDateTime(validatedData.birthDate, validatedData.birthTime)
       } catch {
-        throw new Error('Invalid birth date/time format')
+        throw new ValidationError('Invalid birth date/time format', ['birthDate: Invalid format'])
       }
     }
 
     const subject = await prisma.subject.update({
-      where: { id: data.id },
+      where: { id: validatedData.id },
       data: {
-        name: data.name,
+        name: validatedData.name,
         birthDatetime,
-        city: data.city,
-        nation: data.nation,
-        latitude: data.latitude,
-        longitude: data.longitude,
-        timezone: data.timezone,
-        rodensRating: data.rodens_rating,
+        city: validatedData.city,
+        nation: validatedData.nation,
+        latitude: validatedData.latitude,
+        longitude: validatedData.longitude,
+        timezone: validatedData.timezone,
+        rodensRating: validatedData.rodens_rating,
 
-        tags: data.tags ? JSON.stringify(data.tags) : undefined,
-        notes: data.notes,
+        tags: validatedData.tags ? JSON.stringify(validatedData.tags) : undefined,
+        notes: validatedData.notes,
       },
     })
 
@@ -259,9 +325,16 @@ export async function updateSubject(data: UpdateSubjectInput): Promise<Subject> 
  *
  * @param id - Subject UUID to delete
  * @returns Object with deleted subject's id
+ * @throws ValidationError if id is invalid
  * @throws Error if user is not authenticated or unauthorized
  */
 export async function deleteSubject(id: string): Promise<{ id: string }> {
+  // Validate ID format
+  const parseResult = subjectIdSchema.safeParse(id)
+  if (!parseResult.success) {
+    throw new ValidationError('Invalid subject ID', formatZodErrors(parseResult.error))
+  }
+
   return withAuth(async (session) => {
     // Use deleteMany with conditions to verify ownership and delete in one query
     const result = await prisma.subject.deleteMany({
@@ -286,9 +359,16 @@ export async function deleteSubject(id: string): Promise<{ id: string }> {
  *
  * @param ids - Array of Subject UUIDs to delete
  * @returns Object with count of deleted records
+ * @throws ValidationError if ids array is invalid
  * @throws Error if user is not authenticated
  */
 export async function deleteSubjects(ids: string[]): Promise<{ count: number }> {
+  // Validate IDs array
+  const parseResult = subjectIdsSchema.safeParse(ids)
+  if (!parseResult.success) {
+    throw new ValidationError('Invalid subject IDs', formatZodErrors(parseResult.error))
+  }
+
   return withAuth(async (session) => {
     const result = await prisma.subject.deleteMany({
       where: {
@@ -315,6 +395,11 @@ export async function deleteSubjects(ids: string[]): Promise<{ count: number }> 
 export async function importSubjects(
   subjects: CreateSubjectInput[],
 ): Promise<{ created: number; skipped: number; failed: number; errors: string[] }> {
+  // Validate array input
+  if (!Array.isArray(subjects)) {
+    throw new ValidationError('Invalid input: expected an array of subjects', ['subjects: Must be an array'])
+  }
+
   return withAuth(async (session) => {
     // DODO PAYMENTS: Check subject limit for free plan
     const user = await prisma.user.findUnique({
@@ -348,9 +433,18 @@ export async function importSubjects(
     let failedCount = 0
     const errors: string[] = []
 
-    for (const data of subjects) {
+    for (let i = 0; i < subjects.length; i++) {
+      const rawData = subjects[i]
       try {
-        // Validate required fields
+        // Validate each subject using Zod schema
+        const validationResult = createSubjectSchema.safeParse(rawData)
+        if (!validationResult.success) {
+          const fieldErrors = formatZodErrors(validationResult.error)
+          throw new Error(`Subject #${i + 1}: ${fieldErrors.join(', ')}`)
+        }
+        const data = validationResult.data
+
+        // Validate birth date is present
         if (!data.birthDate || isNaN(Date.parse(data.birthDate))) {
           throw new Error(`Invalid birth date for "${data.name}"`)
         }
@@ -402,7 +496,7 @@ export async function importSubjects(
         createdCount++
       } catch (error) {
         failedCount++
-        errors.push((error as Error).message)
+        errors.push(getErrorMessage(error))
       }
     }
 

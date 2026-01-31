@@ -5,6 +5,7 @@ import { logger } from '@/lib/logging/server'
 import { checkRateLimit, rateLimitExceededResponse, rateLimitHeaders, RATE_LIMITS } from '@/lib/security/rate-limit'
 import { z } from 'zod'
 import { validateBody, formatValidationErrors } from '@/lib/validation/api'
+import { CACHE_CONTROL, mergeCacheControlHeaders } from '@/lib/security/cache-control'
 
 const bulkDeleteSchema = z.object({
   ids: z.array(z.string().cuid()).min(1).max(100),
@@ -52,7 +53,13 @@ export async function POST(req: NextRequest) {
         deleted: result.count,
         requested: ids.length,
       },
-      { headers: rateLimitHeaders(rateLimitResult, RATE_LIMITS.strict.limit) },
+      {
+        // Bulk delete mutations should never be cached
+        headers: mergeCacheControlHeaders(
+          rateLimitHeaders(rateLimitResult, RATE_LIMITS.strict.limit),
+          CACHE_CONTROL.noStore,
+        ),
+      },
     )
   } catch (error) {
     logger.error('Error bulk deleting saved charts:', error)

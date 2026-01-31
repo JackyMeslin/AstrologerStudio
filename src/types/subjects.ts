@@ -5,15 +5,9 @@
 export type { Subject, RodensRating } from './schemas'
 
 // Form input types (re-export from validation schemas)
-export type { UpdateSubjectInput, CreateSubjectInput } from '@/lib/validation/subject'
-
-// Raw type used to adapt randomuser.me payloads into Subject
-export interface RawRandomUser {
-  login: { uuid: string; username: string }
-  dob: { date: string }
-  location?: {
-    city?: string
-    country?: string
-    coordinates?: { latitude: string; longitude: string }
-  }
-}
+export type {
+  UpdateSubjectFormInput,
+  UpdateSubjectInput,
+  CreateSubjectFormInput,
+  CreateSubjectInput,
+} from '@/lib/validation/subject'

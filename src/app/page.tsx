@@ -1,5 +1,6 @@
 import { LandingPage } from '@/components/LandingPage'
 import type { Metadata } from 'next'
+import { APP_URL } from '@/lib/config/app'
 
 // Force static generation at build time
 export const dynamic = 'force-static'
@@ -25,7 +26,7 @@ export default function Page() {
     name: 'Astrologer Studio',
     applicationCategory: 'UtilitiesApplication',
     operatingSystem: 'Web',
-    url: 'https://astrologerstudio.com/',
+    url: `${APP_URL}/`,
     description:
       'Open-source professional astrology software for accurate natal charts, transits, synastry, composite charts, ephemeris, and AI interpretations.',
   }

@@ -46,9 +46,9 @@ export interface NatalChartPDFProps {
  */
 function getReportTitle(chartType?: string): string {
   switch (chartType) {
-    case 'solar_return':
+    case 'solar-return':
       return 'Solar Return Report'
-    case 'lunar_return':
+    case 'lunar-return':
       return 'Lunar Return Report'
     case 'transit':
       return 'Transit Report'
@@ -104,7 +104,7 @@ export function NatalChartPDF({
 
         <PDFSubjectSection
           subject={subject}
-          dateLabel={chartType === 'solar_return' || chartType === 'lunar_return' ? 'Return Date' : undefined}
+          dateLabel={chartType === 'solar-return' || chartType === 'lunar-return' ? 'Return Date' : undefined}
           dateFormat={dateFormat}
           timeFormat={timeFormat}
         />

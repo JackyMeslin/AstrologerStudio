@@ -20,6 +20,7 @@ import { prisma } from '@/lib/db/prisma'
 import { PlanSelectionCard } from './PlanSelectionCard'
 import { ChoosePlanHeader } from './ChoosePlanHeader'
 import { calculateTrialEndDate, getTrialDurationDays } from '@/lib/config/trial'
+import { logger } from '@/lib/logging/server'
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
@@ -52,7 +53,7 @@ export default async function ChoosePlanPage({ searchParams }: { searchParams: P
         const { syncSubscriptionFromDodo } = await import('@/dodopayments/lib/subscription')
         syncSuccess = await syncSubscriptionFromDodo(session.userId, user.email)
       } catch (error) {
-        console.error('Failed to sync subscription with Dodo Payments API:', error)
+        logger.error('Failed to sync subscription with Dodo Payments API:', error)
       }
     }
 
@@ -75,7 +76,9 @@ export default async function ChoosePlanPage({ searchParams }: { searchParams: P
       })
     }
 
-    redirect('/dashboard')
+    // Redirect to dashboard WITH the completed parameter
+    // This ensures CheckoutSuccessHandler on dashboard can show the congratulations popup
+    redirect('/dashboard?completed=true')
   }
 
   // Check if user has already completed onboarding

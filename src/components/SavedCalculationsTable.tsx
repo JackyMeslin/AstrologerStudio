@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { DataTable } from '@/components/data-table/DataTable'
 import { Button } from '@/components/ui/button'
 import { Loader2, Trash2 } from 'lucide-react'
@@ -52,17 +52,23 @@ export function SavedCalculationsTable() {
   const router = useRouter()
 
   useEffect(() => {
-    fetchSavedCharts()
+    const controller = new AbortController()
+    fetchSavedCharts(controller.signal)
+    return () => {
+      controller.abort()
+    }
   }, [])
 
-  const fetchSavedCharts = async () => {
+  const fetchSavedCharts = async (signal?: AbortSignal) => {
     try {
-      const res = await fetch('/api/saved-charts')
+      const res = await fetch('/api/saved-charts', { signal })
       if (res.ok) {
         const data = await res.json()
         setSavedCharts(data)
       }
     } catch (error) {
+      // Ignore abort errors - component was unmounted
+      if (error instanceof Error && error.name === 'AbortError') return
       clientLogger.error('Error fetching saved charts:', error)
       toast.error('Failed to load saved charts')
     } finally {
@@ -70,10 +76,10 @@ export function SavedCalculationsTable() {
     }
   }
 
-  const handleDelete = (id: string, e?: React.MouseEvent) => {
+  const handleDelete = useCallback((id: string, e?: React.MouseEvent) => {
     e?.stopPropagation()
     setDeleteConfirm({ type: 'single', ids: [id] })
-  }
+  }, [])
 
   const confirmDelete = async () => {
     if (!deleteConfirm) return
@@ -162,7 +168,14 @@ export function SavedCalculationsTable() {
     }
   }
 
-  const openEditDialog = (chart: SavedChart, e: React.MouseEvent) => {
+  const handleLoadChart = useCallback(
+    (id: string) => {
+      router.push(`/saved-calculations/${id}`)
+    },
+    [router],
+  )
+
+  const openEditDialog = useCallback((chart: SavedChart, e: React.MouseEvent) => {
     e.stopPropagation()
     setEditingChart(chart)
     setNewName(chart.name)
@@ -176,11 +189,7 @@ export function SavedCalculationsTable() {
     } catch {
       setNewTags('')
     }
-  }
-
-  const handleLoadChart = (id: string) => {
-    router.push(`/saved-calculations/${id}`)
-  }
+  }, [])
 
   // Collect all unique tags
   const allTags = useMemo(() => {
@@ -207,8 +216,7 @@ export function SavedCalculationsTable() {
         onDelete: handleDelete,
         onLoad: handleLoadChart,
       }),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [],
+    [openEditDialog, handleDelete, handleLoadChart],
   )
 
   if (loading) {

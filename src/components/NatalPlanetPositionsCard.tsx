@@ -1,4 +1,4 @@
-import { useId, useMemo } from 'react'
+import { useId, useMemo, memo } from 'react'
 import { ChevronDown } from 'lucide-react'
 
 import type { AstrologicalSubject } from '@/types/birthChart'
@@ -48,7 +48,7 @@ const getHouseNumber = (houseName: string | null | undefined): string => {
   return HOUSE_NAME_TO_NUMBER[normalized]?.toString() || '-'
 }
 
-export default function NatalPlanetPositionsCard({
+const NatalPlanetPositionsCard = memo(function NatalPlanetPositionsCard({
   subject,
   className,
   id = 'natal-planets-card',
@@ -144,4 +144,6 @@ export default function NatalPlanetPositionsCard({
       </CardContent>
     </Card>
   )
-}
+})
+
+export default NatalPlanetPositionsCard

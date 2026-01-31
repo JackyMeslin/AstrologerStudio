@@ -1,4 +1,4 @@
-import { useId } from 'react'
+import { useId, memo } from 'react'
 import { ChevronDown } from 'lucide-react'
 
 import type { AstrologicalSubject } from '@/types/birthChart'
@@ -42,7 +42,7 @@ const decimalToDMS = (decimal: number): string => {
   return `${degrees}° ${minutes}' ${seconds}"`
 }
 
-export default function NatalHousesPositionsCard({
+const NatalHousesPositionsCard = memo(function NatalHousesPositionsCard({
   subject,
   className,
   id = 'natal-houses-card',
@@ -102,4 +102,6 @@ export default function NatalHousesPositionsCard({
       </CardContent>
     </Card>
   )
-}
+})
+
+export default NatalHousesPositionsCard

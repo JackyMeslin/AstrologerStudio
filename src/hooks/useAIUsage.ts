@@ -1,21 +1,18 @@
 import { useQuery } from '@tanstack/react-query'
-
-interface AIUsageData {
-  usage: number
-  limit: number
-  remaining: number
-}
+import { AIUsageResponseSchema, type AIUsageResponse } from '@/types/schemas'
+import { STALE_TIME } from '@/lib/config/query'
 
 export function useAIUsage() {
-  return useQuery<AIUsageData>({
+  return useQuery<AIUsageResponse>({
     queryKey: ['ai-usage'],
     queryFn: async () => {
       const res = await fetch('/api/ai/usage')
       if (!res.ok) {
         throw new Error('Failed to fetch AI usage')
       }
-      return res.json()
+      const data = await res.json()
+      return AIUsageResponseSchema.parse(data)
     },
-    staleTime: 1000 * 60 * 5, // 5 minutes
+    staleTime: STALE_TIME.MEDIUM, // 5 minutes
   })
 }

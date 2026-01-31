@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { Suspense } from 'react'
 import { TryBirthChartView } from './TryBirthChartView'
+import { APP_URL } from '@/lib/config/app'
 
 export const metadata: Metadata = {
   title: 'Free Birth Chart Calculator - Astrologer Studio',
@@ -30,7 +31,7 @@ export default function TryBirthChartPage() {
     name: 'Free Birth Chart Calculator',
     applicationCategory: 'UtilitiesApplication',
     operatingSystem: 'Web',
-    url: 'https://astrologerstudio.com/share/birthchart',
+    url: `${APP_URL}/share/birthchart`,
     description: 'Generate your free natal birth chart instantly with accurate planetary positions.',
     offers: {
       '@type': 'Offer',

@@ -4,6 +4,7 @@ import '@/css/index.css'
 import { Providers } from './providers'
 import { ReactNode } from 'react'
 import { OrganizationJsonLd, WebApplicationJsonLd } from '@/components/JsonLd'
+import { APP_URL } from '@/lib/config/app'
 
 /**
  * Viewport configuration for responsive design
@@ -22,7 +23,7 @@ export const viewport: Viewport = {
  * Root metadata with comprehensive SEO
  */
 export const metadata: Metadata = {
-  metadataBase: new URL('https://astrologerstudio.com'),
+  metadataBase: new URL(APP_URL),
   title: {
     default: 'Astrologer Studio - Professional Astrology Application',
     template: '%s | Astrologer Studio',
@@ -47,7 +48,7 @@ export const metadata: Metadata = {
   openGraph: {
     type: 'website',
     locale: 'en_US',
-    url: 'https://astrologerstudio.com',
+    url: APP_URL,
     siteName: 'Astrologer Studio',
     title: 'Astrologer Studio - Professional Astrology Application',
     description:

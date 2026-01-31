@@ -2,6 +2,8 @@
  * Server-side reCAPTCHA verification utility
  */
 
+import { logger } from '@/lib/logging/server'
+
 const RECAPTCHA_VERIFY_URL = 'https://www.google.com/recaptcha/api/siteverify'
 
 // Check if reCAPTCHA is disabled (for self-hosted/dev environments)
@@ -10,7 +12,7 @@ const isRecaptchaDisabled = process.env.NEXT_PUBLIC_DISABLE_RECAPTCHA === 'true'
 
 // Log warning once at startup if reCAPTCHA is disabled
 if (isRecaptchaDisabled) {
-  console.warn(
+  logger.warn(
     '[SECURITY WARNING] reCAPTCHA verification is DISABLED. ' +
       'This should only be used in development or *local* self-hosted environments. ' +
       'Set NEXT_PUBLIC_DISABLE_RECAPTCHA=false in production.',
@@ -59,7 +61,7 @@ export async function verifyRecaptcha(token: string): Promise<boolean> {
   }
 
   if (!token) {
-    console.error('No reCAPTCHA token provided')
+    logger.warn('No reCAPTCHA token provided')
     return false
   }
 
@@ -76,20 +78,20 @@ export async function verifyRecaptcha(token: string): Promise<boolean> {
     })
 
     if (!response.ok) {
-      console.error('reCAPTCHA verification request failed:', response.status)
+      logger.error('reCAPTCHA verification request failed', response.status)
       return false
     }
 
     const data: RecaptchaResponse = await response.json()
 
     if (!data.success) {
-      console.error('reCAPTCHA verification failed:', data['error-codes'])
+      logger.warn('reCAPTCHA verification failed', data['error-codes'])
       return false
     }
 
     return true
   } catch (error) {
-    console.error('reCAPTCHA verification error:', error)
+    logger.error('reCAPTCHA verification error', error)
     return false
   }
 }

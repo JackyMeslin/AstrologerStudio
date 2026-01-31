@@ -1,4 +1,5 @@
 import type { MetadataRoute } from 'next'
+import { APP_URL } from '@/lib/config/app'
 
 export default function robots(): MetadataRoute.Robots {
   return {
@@ -8,6 +9,6 @@ export default function robots(): MetadataRoute.Robots {
         allow: '/',
       },
     ],
-    sitemap: 'https://astrologerstudio.com/sitemap.xml',
+    sitemap: `${APP_URL}/sitemap.xml`,
   }
 }

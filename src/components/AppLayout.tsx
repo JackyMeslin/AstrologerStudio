@@ -24,6 +24,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { Button } from '@/components/ui/button'
 import { GlobalCreateSubjectDialog } from '@/components/GlobalCreateSubjectDialog'
+import { SkipLink } from '@/components/SkipLink'
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const { open, setOpen } = useSidebarStore()
@@ -57,18 +58,18 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     focusMain()
   }, [pathname, focusMain])
 
-  function CloseOnNavigate() {
+  function CloseOnNavigate({ currentPathname }: { currentPathname: string }) {
     const { setOpenMobile } = useSidebar()
     React.useEffect(() => {
       setOpenMobile(false)
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [pathname, setOpenMobile])
+    }, [currentPathname, setOpenMobile])
     return null
   }
 
   return (
     <SidebarProvider open={open} onOpenChange={setOpen}>
-      <CloseOnNavigate />
+      <SkipLink />
+      <CloseOnNavigate currentPathname={pathname} />
       <ShadSidebar collapsible="icon">
         <SidebarHeader>
           <div className="flex items-center justify-between gap-2">
@@ -119,7 +120,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
               <div className="text-sm font-medium">{user?.username || 'Guest'}</div>
               <div className="text-xs text-muted-foreground">{user?.email || 'Not logged in'}</div>
             </Link>
-            <Button variant="ghost" size="icon" className="size-8" onClick={() => logout()} title="Logout">
+            <Button variant="ghost" size="icon" className="size-8" onClick={() => logout()} aria-label="Logout">
               <LogOut className="size-4" />
             </Button>
           </div>
@@ -143,6 +144,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           </div>
         </header>
         <main
+          id="main-content"
           ref={mainRef}
           tabIndex={-1}
           aria-label="Main content"

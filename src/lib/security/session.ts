@@ -1,6 +1,9 @@
 import 'server-only'
 import { SignJWT, jwtVerify } from 'jose'
 import { cookies } from 'next/headers'
+import { z } from 'zod'
+import { logger } from '@/lib/logging/server'
+import { SESSION_DURATION_MS, SESSION_DURATION_STRING } from '@/lib/config/time'
 
 /**
  * Session secret validation and encoding
@@ -22,22 +25,23 @@ if (process.env.NODE_ENV === 'production') {
 // Development fallback with warning
 const effectiveSecret = secretKey || 'dev-only-secret-key-change-in-prod-32chars'
 if (!secretKey) {
-  console.warn('⚠️  Using default SESSION_SECRET. Set a secure secret for production!')
+  logger.warn('Using default SESSION_SECRET. Set a secure secret for production!')
 }
 
 const encodedKey = new TextEncoder().encode(effectiveSecret)
 
 /**
- * Session payload structure
+ * Session payload validation schema.
+ * Validates the structure of decoded JWT payloads at runtime to reject
+ * tokens with missing or incorrectly-typed fields.
  */
-type SessionPayload = {
-  /** Unique user identifier */
-  userId: string
-  /** Username for display purposes */
-  username: string
-  /** Session expiration timestamp */
-  expiresAt: Date
-}
+const sessionPayloadSchema = z.object({
+  userId: z.string(),
+  username: z.string(),
+  expiresAt: z.coerce.date(),
+})
+
+type SessionPayload = z.infer<typeof sessionPayloadSchema>
 
 /**
  * Encrypts session payload into a JWT token
@@ -59,7 +63,7 @@ export async function encrypt(payload: SessionPayload): Promise<string> {
   return new SignJWT(payload)
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuedAt()
-    .setExpirationTime('7d')
+    .setExpirationTime(SESSION_DURATION_STRING)
     .sign(encodedKey)
 }
 
@@ -85,7 +89,11 @@ export async function decrypt(session: string | undefined = ''): Promise<Session
     const { payload } = await jwtVerify(session, encodedKey, {
       algorithms: ['HS256'],
     })
-    return payload as unknown as SessionPayload
+    const result = sessionPayloadSchema.safeParse(payload)
+    if (!result.success) {
+      return null
+    }
+    return result.data
   } catch {
     // Silently fail for security - don't expose token validation errors
     return null
@@ -112,7 +120,7 @@ export async function decrypt(session: string | undefined = ''): Promise<Session
  * ```
  */
 export async function createSession(userId: string, username: string): Promise<void> {
-  const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+  const expiresAt = new Date(Date.now() + SESSION_DURATION_MS)
   const session = await encrypt({ userId, username, expiresAt })
   const cookieStore = await cookies()
 
@@ -149,7 +157,7 @@ export async function updateSession(): Promise<null | void> {
     return null
   }
 
-  const expires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+  const expires = new Date(Date.now() + SESSION_DURATION_MS)
   const cookieStore = await cookies()
   cookieStore.set('session', session, {
     httpOnly: true,

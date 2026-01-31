@@ -15,7 +15,7 @@ import { Form, FormField, FormLabel } from '@/components/ui/form'
 import { PlanetaryReturnRequestOptions } from '@/types/astrology'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { cn } from '@/lib/utils/cn'
-import { useDateFormat } from '@/hooks/useDateFormat'
+import { useChartPreferences } from '@/hooks/useChartPreferences'
 import { formatDisplayDate } from '@/lib/utils/date'
 
 interface LunarReturnNavigatorProps {
@@ -51,7 +51,7 @@ export function LunarReturnNavigator({
 }: LunarReturnNavigatorProps) {
   const [isExpanded, setIsExpanded] = useState(false)
   const [isDatePickerOpen, setIsDatePickerOpen] = useState(false)
-  const dateFormat = useDateFormat()
+  const { dateFormat } = useChartPreferences()
 
   const form = useForm<LunarReturnFormValues>({
     resolver: zodResolver(lunarReturnFormSchema),
@@ -149,7 +149,7 @@ export function LunarReturnNavigator({
                   className="h-9 w-9 shrink-0"
                   onClick={() => handleStep('backward')}
                   disabled={isLoading}
-                  title="Previous Return"
+                  aria-label="Previous Return"
                 >
                   <ChevronLeft className="h-4 w-4" />
                 </Button>
@@ -194,12 +194,18 @@ export function LunarReturnNavigator({
                             control={form.control}
                             name="year"
                             render={({ field }) => (
-                              <Input
-                                type="number"
-                                className="w-[100px]"
-                                value={field.value}
-                                onChange={(e) => field.onChange(parseInt(e.target.value))}
-                              />
+                              <div className="flex flex-col gap-1">
+                                <label htmlFor="lunar-return-year" className="sr-only">
+                                  Year
+                                </label>
+                                <Input
+                                  id="lunar-return-year"
+                                  type="number"
+                                  className="w-[100px]"
+                                  value={field.value}
+                                  onChange={(e) => field.onChange(parseInt(e.target.value))}
+                                />
+                              </div>
                             )}
                           />
                         </div>
@@ -224,7 +230,7 @@ export function LunarReturnNavigator({
                   className="h-9 w-9 shrink-0"
                   onClick={() => handleStep('forward')}
                   disabled={isLoading}
-                  title="Next Return"
+                  aria-label="Next Return"
                 >
                   <ChevronRight className="h-4 w-4" />
                 </Button>
@@ -238,7 +244,7 @@ export function LunarReturnNavigator({
                   size="icon"
                   onClick={handleCurrentMonth}
                   className="h-9 w-9"
-                  title="Current Month"
+                  aria-label="Current Month"
                 >
                   <RotateCcw className="h-4 w-4" />
                 </Button>
@@ -261,7 +267,7 @@ export function LunarReturnNavigator({
                   size="icon"
                   className="h-9 w-9"
                   onClick={() => setIsExpanded(!isExpanded)}
-                  title={isExpanded ? 'Collapse' : 'Expand'}
+                  aria-label={isExpanded ? 'Collapse' : 'Expand'}
                 >
                   <ChevronLeft
                     className={cn('h-4 w-4 transition-transform', isExpanded ? 'rotate-90' : '-rotate-90')}

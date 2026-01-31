@@ -343,8 +343,8 @@ export const CHART_TYPE_PROMPTS: Record<string, string> = {
   transit: TRANSIT_CHART_TYPE_PROMPT,
   synastry: SYNASTRY_CHART_TYPE_PROMPT,
   composite: COMPOSITE_CHART_TYPE_PROMPT,
-  solar_return: SOLAR_RETURN_CHART_TYPE_PROMPT,
-  lunar_return: LUNAR_RETURN_CHART_TYPE_PROMPT,
+  'solar-return': SOLAR_RETURN_CHART_TYPE_PROMPT,
+  'lunar-return': LUNAR_RETURN_CHART_TYPE_PROMPT,
 }
 
 /** Default system prompt used when no school prompt is provided. */

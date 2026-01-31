@@ -17,6 +17,7 @@ import { ChartData, HouseComparison } from '@/types/astrology'
 import { Card, CardContent } from '@/components/ui/card'
 import { Star } from 'lucide-react'
 import { getChartPreferences } from '@/actions/preferences'
+import { clientLogger } from '@/lib/logging/client'
 
 import {
   HighlightItem,
@@ -61,7 +62,7 @@ export function ChartHighlights({ data, secondaryData, chartType, houseCompariso
           setRulershipMode(prefs.rulership_mode as 'classical' | 'modern')
         }
       } catch (error) {
-        console.error('Failed to load chart preferences in highlights:', error)
+        clientLogger.error('Failed to load chart preferences in highlights:', error)
       }
     }
     loadPreferences()

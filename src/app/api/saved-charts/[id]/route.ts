@@ -4,6 +4,7 @@ import { getSession } from '@/lib/security/session'
 import { logger } from '@/lib/logging/server'
 import { updateSavedChartSchema, validateBody, formatValidationErrors } from '@/lib/validation/api'
 import { checkRateLimit, rateLimitExceededResponse, rateLimitHeaders, RATE_LIMITS } from '@/lib/security/rate-limit'
+import { CACHE_CONTROL, mergeCacheControlHeaders } from '@/lib/security/cache-control'
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await getSession()
@@ -73,7 +74,11 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     logger.debug('Updated saved chart:', { id, userId: session.userId })
 
     return NextResponse.json(updatedChart, {
-      headers: rateLimitHeaders(rateLimitResult, RATE_LIMITS.strict.limit),
+      // Mutations should never be cached
+      headers: mergeCacheControlHeaders(
+        rateLimitHeaders(rateLimitResult, RATE_LIMITS.strict.limit),
+        CACHE_CONTROL.noStore,
+      ),
     })
   } catch (error) {
     logger.error('Error updating saved chart:', error)
@@ -112,7 +117,13 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
 
     return NextResponse.json(
       { success: true },
-      { headers: rateLimitHeaders(rateLimitResult, RATE_LIMITS.strict.limit) },
+      {
+        // Mutations should never be cached
+        headers: mergeCacheControlHeaders(
+          rateLimitHeaders(rateLimitResult, RATE_LIMITS.strict.limit),
+          CACHE_CONTROL.noStore,
+        ),
+      },
     )
   } catch (error) {
     logger.error('Error deleting saved chart:', error)

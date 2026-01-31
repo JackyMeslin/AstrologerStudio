@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/db/prisma'
 import { getSession } from '@/lib/security/session'
+import { CACHE_CONTROL, cacheControlHeaders } from '@/lib/security/cache-control'
+import { logger } from '@/lib/logging/server'
 
 export const dynamic = 'force-dynamic'
 
@@ -40,14 +42,20 @@ export async function GET() {
     const count = usage?.count || 0
     const remaining = Math.max(0, maxDailyRegenerations - count)
 
-    return NextResponse.json({
-      usage: count,
-      limit: maxDailyRegenerations,
-      remaining,
-      plan: user?.subscriptionPlan, // Useful for debugging frontend
-    })
+    // AI usage changes frequently (after each generation), use dynamic caching
+    return NextResponse.json(
+      {
+        usage: count,
+        limit: maxDailyRegenerations,
+        remaining,
+        plan: user?.subscriptionPlan, // Useful for debugging frontend
+      },
+      {
+        headers: cacheControlHeaders(CACHE_CONTROL.userDataDynamic),
+      },
+    )
   } catch (error) {
-    console.error('Error fetching AI usage:', error)
+    logger.error('Error fetching AI usage:', error)
     return NextResponse.json({ error: 'Failed to fetch usage' }, { status: 500 })
   }
 }

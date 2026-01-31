@@ -4,6 +4,8 @@ import { createSession } from '@/lib/security/session'
 import { isGoogleOAuthEnabled, exchangeCodeForTokens, getGoogleUserInfo } from '@/lib/security/oauth'
 import { logger } from '@/lib/logging/server'
 import { calculateTrialEndDate } from '@/lib/config/trial'
+import { CACHE_CONTROL } from '@/lib/security/cache-control'
+import { APP_URL } from '@/lib/config/app'
 
 /**
  * GET /api/auth/google/callback
@@ -13,7 +15,9 @@ import { calculateTrialEndDate } from '@/lib/config/trial'
 export async function GET(request: NextRequest): Promise<NextResponse> {
   // Check if OAuth is enabled
   if (!isGoogleOAuthEnabled()) {
-    return NextResponse.redirect(new URL('/login?error=oauth_disabled', request.url))
+    const response = NextResponse.redirect(new URL('/login?error=oauth_disabled', request.url))
+    response.headers.set('Cache-Control', CACHE_CONTROL.noStore)
+    return response
   }
 
   const searchParams = request.nextUrl.searchParams
@@ -24,7 +28,9 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   // Handle user cancellation or errors
   if (error || !code) {
     logger.warn('Google OAuth callback error:', error || 'No code provided')
-    return NextResponse.redirect(new URL('/login?error=oauth_cancelled', request.url))
+    const response = NextResponse.redirect(new URL('/login?error=oauth_cancelled', request.url))
+    response.headers.set('Cache-Control', CACHE_CONTROL.noStore)
+    return response
   }
 
   // Validate state parameter to prevent CSRF
@@ -32,7 +38,9 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
   if (!savedState || savedState !== receivedState) {
     logger.warn('OAuth state mismatch - potential CSRF attempt')
-    return NextResponse.redirect(new URL('/login?error=invalid_state', request.url))
+    const response = NextResponse.redirect(new URL('/login?error=invalid_state', request.url))
+    response.headers.set('Cache-Control', CACHE_CONTROL.noStore)
+    return response
   }
 
   try {
@@ -43,7 +51,9 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     const googleUser = await getGoogleUserInfo(tokens.access_token)
 
     if (!googleUser.verified_email) {
-      return NextResponse.redirect(new URL('/login?error=email_not_verified', request.url))
+      const response = NextResponse.redirect(new URL('/login?error=email_not_verified', request.url))
+      response.headers.set('Cache-Control', CACHE_CONTROL.noStore)
+      return response
     }
 
     // Find existing user by googleId or email
@@ -123,15 +133,18 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     await createSession(user.id, user.username)
 
     // Redirect to app using configured APP_URL
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.astrologerstudio.com'
-    const redirectResponse = NextResponse.redirect(new URL('/dashboard', appUrl))
+    const redirectResponse = NextResponse.redirect(new URL('/dashboard', APP_URL))
 
     // Clear the oauth_state cookie after successful validation
     redirectResponse.cookies.delete('oauth_state')
+    // OAuth redirects should never be cached
+    redirectResponse.headers.set('Cache-Control', CACHE_CONTROL.noStore)
 
     return redirectResponse
   } catch (err) {
     logger.error('Google OAuth callback error:', err)
-    return NextResponse.redirect(new URL('/login?error=oauth_failed', request.url))
+    const response = NextResponse.redirect(new URL('/login?error=oauth_failed', request.url))
+    response.headers.set('Cache-Control', CACHE_CONTROL.noStore)
+    return response
   }
 }

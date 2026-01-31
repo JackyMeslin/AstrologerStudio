@@ -4,6 +4,7 @@ import { getSession } from '@/lib/security/session'
 import { logger } from '@/lib/logging/server'
 import { createSavedChartSchema, validateBody, formatValidationErrors } from '@/lib/validation/api'
 import { checkRateLimit, rateLimitExceededResponse, rateLimitHeaders, RATE_LIMITS } from '@/lib/security/rate-limit'
+import { CACHE_CONTROL, mergeCacheControlHeaders } from '@/lib/security/cache-control'
 
 /**
  * Saved Charts API
@@ -52,7 +53,10 @@ export async function GET() {
     })
 
     return NextResponse.json(savedCharts, {
-      headers: rateLimitHeaders(rateLimitResult, RATE_LIMITS.standard.limit),
+      headers: mergeCacheControlHeaders(
+        rateLimitHeaders(rateLimitResult, RATE_LIMITS.standard.limit),
+        CACHE_CONTROL.userDataShort,
+      ),
     })
   } catch (error) {
     logger.error('Error fetching saved charts:', error)
@@ -120,7 +124,11 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(savedChart, {
       status: 201,
-      headers: rateLimitHeaders(rateLimitResult, RATE_LIMITS.strict.limit),
+      // Mutations should never be cached
+      headers: mergeCacheControlHeaders(
+        rateLimitHeaders(rateLimitResult, RATE_LIMITS.strict.limit),
+        CACHE_CONTROL.noStore,
+      ),
     })
   } catch (error) {
     logger.error('Error creating saved chart:', error)

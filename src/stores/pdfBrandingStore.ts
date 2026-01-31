@@ -5,7 +5,11 @@ import { persist } from 'zustand/middleware'
  * PDF Branding Type
  * - 'default': Uses AstrologerStudio branding
  * - 'text': Uses custom text branding
- * - 'logo': Uses uploaded logo image
+ * - 'logo': Uses uploaded logo image (currently disabled - UI not implemented)
+ *
+ * NOTE: Logo upload feature is temporarily disabled pending UI implementation.
+ * The logoData field is preserved for future use but has no setter method.
+ * To re-enable: add setLogoData action and corresponding UI in PDFBrandingSettings.
  */
 export type BrandingType = 'default' | 'text' | 'logo'
 
@@ -27,7 +31,8 @@ export interface PDFExportOptions {
 export interface PDFBrandingState {
   // Branding settings
   brandingType: BrandingType
-  logoData: string | null // Base64 encoded image
+  /** Base64 encoded logo image. Reserved for future logo upload feature. */
+  logoData: string | null
   brandingText: string
   showFooter: boolean
   footerText: string
@@ -37,7 +42,6 @@ export interface PDFBrandingState {
 
   // Actions
   setBrandingType: (type: BrandingType) => void
-  setLogoData: (data: string | null) => void
   setBrandingText: (text: string) => void
   setShowFooter: (show: boolean) => void
   setFooterText: (text: string) => void
@@ -70,15 +74,11 @@ const DEFAULT_STATE = {
  *
  * @example
  * ```tsx
- * const { brandingType, setBrandingType, logoData } = usePDFBranding()
+ * const { brandingType, setBrandingType } = usePDFBranding()
  *
  * // Set custom text branding
  * setBrandingType('text')
  * setBrandingText('My Astrology Practice')
- *
- * // Or upload logo
- * setBrandingType('logo')
- * setLogoData(base64EncodedImage)
  * ```
  */
 export const usePDFBranding = create<PDFBrandingState>()(
@@ -87,8 +87,6 @@ export const usePDFBranding = create<PDFBrandingState>()(
       ...DEFAULT_STATE,
 
       setBrandingType: (type) => set({ brandingType: type }),
-
-      setLogoData: (data) => set({ logoData: data }),
 
       setBrandingText: (text) => set({ brandingText: text }),
 

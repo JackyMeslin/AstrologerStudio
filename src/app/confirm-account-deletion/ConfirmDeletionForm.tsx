@@ -9,7 +9,7 @@
  * @module app/confirm-account-deletion/ConfirmDeletionForm
  */
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -29,6 +29,16 @@ export default function ConfirmDeletionForm() {
   const [isDeleting, setIsDeleting] = useState(false)
   const [isDeleted, setIsDeleted] = useState(false)
   const [deleteError, setDeleteError] = useState<string | null>(null)
+  const redirectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (redirectTimeoutRef.current) {
+        clearTimeout(redirectTimeoutRef.current)
+      }
+    }
+  }, [])
 
   useEffect(() => {
     async function validate() {
@@ -63,7 +73,7 @@ export default function ConfirmDeletionForm() {
       } else {
         setIsDeleted(true)
         // Redirect to home after a delay
-        setTimeout(() => {
+        redirectTimeoutRef.current = setTimeout(() => {
           router.push('/')
         }, 3000)
       }

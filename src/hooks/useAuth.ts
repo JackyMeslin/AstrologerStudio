@@ -2,6 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { login as apiLogin, getCurrentUser, logout as apiLogout } from '@/lib/api/auth'
+import { STALE_TIME } from '@/lib/config/query'
 import type { LoginInput } from '@/types/auth'
 import { useRouter } from 'next/navigation'
 import { clientLogger } from '@/lib/logging/client'
@@ -15,7 +16,7 @@ export function useAuth() {
     queryKey: ['user', 'me'],
     queryFn: () => getCurrentUser(),
     retry: false,
-    staleTime: Infinity, // Don't refetch user data automatically
+    staleTime: STALE_TIME.LONG, // 30 minutes - balance freshness vs. performance
   })
 
   const user = userQuery.data ?? null

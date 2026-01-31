@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import { Aspect } from '@/types/astrology'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
@@ -13,7 +14,13 @@ interface AspectTableProps {
   hideMovement?: boolean
 }
 
-export function AspectTable({ aspects, className, p1Label, p2Label, hideMovement = false }: AspectTableProps) {
+export const AspectTable = memo(function AspectTable({
+  aspects,
+  className,
+  p1Label,
+  p2Label,
+  hideMovement = false,
+}: AspectTableProps) {
   return (
     <div className={cn('rounded-md border', className)}>
       <Table>
@@ -28,8 +35,8 @@ export function AspectTable({ aspects, className, p1Label, p2Label, hideMovement
           </TableRow>
         </TableHeader>
         <TableBody>
-          {aspects.map((aspect, index) => (
-            <TableRow key={index}>
+          {aspects.map((aspect) => (
+            <TableRow key={`${aspect.p1_name}-${aspect.p2_name}-${aspect.aspect}`}>
               <TableCell className="font-medium">{formatPlanetName(aspect.p1_name)}</TableCell>
               <TableCell>
                 <Badge
@@ -53,4 +60,4 @@ export function AspectTable({ aspects, className, p1Label, p2Label, hideMovement
       </Table>
     </div>
   )
-}
+})

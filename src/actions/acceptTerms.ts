@@ -1,6 +1,7 @@
 'use server'
 
 import { prisma } from '@/lib/db/prisma'
+import { logger } from '@/lib/logging/server'
 import { getSession } from '@/lib/security/session'
 import { LEGAL_VERSIONS } from '@/lib/config/legal'
 import { revalidatePath } from 'next/cache'
@@ -38,7 +39,7 @@ export async function acceptTerms(): Promise<AcceptTermsResult> {
 
     return { success: true }
   } catch (error) {
-    console.error('Error accepting terms:', error)
+    logger.error('Error accepting terms', error)
     return { success: false, error: 'Failed to save acceptance' }
   }
 }

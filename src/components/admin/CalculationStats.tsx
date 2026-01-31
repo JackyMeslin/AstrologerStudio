@@ -1,10 +1,11 @@
 'use client'
 
 import { useState } from 'react'
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
+import dynamic from 'next/dynamic'
 import { Calculator, Trash2, Loader2, AlertTriangle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { ChartLoadingSkeleton } from '@/components/ui/chart-loading-skeleton'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -17,6 +18,12 @@ import {
 } from '@/components/ui/alert-dialog'
 import { clearCalculationHistory, type ClearHistoryTimeRange } from '@/actions/admin'
 import { toast } from 'sonner'
+
+// Dynamically import chart component to avoid loading recharts in the initial bundle
+const AdminBarChartContent = dynamic(
+  () => import('@/components/admin/AdminChartContent').then((mod) => mod.AdminBarChartContent),
+  { ssr: false, loading: () => <ChartLoadingSkeleton height={256} variant="admin" /> },
+)
 
 interface CalculationStatsProps {
   // All-time and today stats (from getDashboardStats)
@@ -203,22 +210,15 @@ export function CalculationStats({
       {/* Bar Chart */}
       {chartData.length > 0 ? (
         <div className="h-64">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={chartData} layout="vertical">
-              <CartesianGrid strokeDasharray="3 3" stroke="#475569" />
-              <XAxis type="number" stroke="#94a3b8" />
-              <YAxis dataKey="name" type="category" stroke="#94a3b8" width={100} />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: '#1e293b',
-                  border: '1px solid #475569',
-                  borderRadius: '8px',
-                }}
-                formatter={(value: number) => [value.toLocaleString(), periodLabels[viewPeriod]]}
-              />
-              <Bar dataKey="count" fill="#8b5cf6" name={periodLabels[viewPeriod]} />
-            </BarChart>
-          </ResponsiveContainer>
+          <AdminBarChartContent
+            data={chartData}
+            layout="vertical"
+            xAxisType="number"
+            yAxisType="category"
+            yAxisWidth={100}
+            tooltipFormatter={(value) => [value.toLocaleString(), periodLabels[viewPeriod]]}
+            barName={periodLabels[viewPeriod]}
+          />
         </div>
       ) : (
         <p className="text-slate-500 text-center py-8">No calculations tracked for this period</p>

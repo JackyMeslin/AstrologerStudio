@@ -6,7 +6,7 @@ import { z } from 'zod'
  */
 
 // Chart types enum
-const chartTypeValues = ['natal', 'transit', 'synastry', 'composite', 'solar_return', 'lunar_return'] as const
+const chartTypeValues = ['natal', 'transit', 'synastry', 'composite', 'solar-return', 'lunar-return'] as const
 type ChartType = (typeof chartTypeValues)[number]
 
 // ============ Saved Charts ============

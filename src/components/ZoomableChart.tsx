@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import clsx from 'clsx'
 import { Button } from '@/components/ui/button'
+import { useChartGestures, type TransformState } from '@/hooks/useChartGestures'
 
 /**
  * Props describing the chart markup and optional behaviour tuning.
@@ -22,7 +23,6 @@ type ZoomableChartProps = {
 const DEFAULT_MIN_SCALE = 0.75
 const DEFAULT_MAX_SCALE = 5
 const DEFAULT_SCALE = 1
-const WHEEL_ZOOM_FACTOR = 1.1
 const BUTTON_ZOOM_FACTOR = 1.2
 const SCALE_COMPARISON_THRESHOLD = 0.001
 const TRANSLATION_COMPARISON_THRESHOLD = 0.5
@@ -35,15 +35,6 @@ const clamp = (value: number, min: number, max: number): number => {
   if (value < min) return min
   if (value > max) return max
   return value
-}
-
-/**
- * Calculate the distance between two touch points so we can detect pinch deltas.
- */
-const getDistance = (touchA: Touch, touchB: Touch): number => {
-  const deltaX = touchA.clientX - touchB.clientX
-  const deltaY = touchA.clientY - touchB.clientY
-  return Math.hypot(deltaX, deltaY)
 }
 
 /**
@@ -71,12 +62,10 @@ export function ZoomableChart({
   const contentRef = useRef<HTMLDivElement | null>(null)
   // Live transform state: zoom, transform origin, and panning offset.
   const [scale, setScale] = useState(DEFAULT_SCALE)
-  const scaleRef = useRef(scale)
   const [translation, setTranslation] = useState({ x: 0, y: 0 })
-  const translationRef = useRef(translation)
 
   // Track live transform values during gestures (for smooth 60fps without React re-renders)
-  const liveTransformRef = useRef({ scale: DEFAULT_SCALE, x: 0, y: 0 })
+  const liveTransformRef = useRef<TransformState>({ scale: DEFAULT_SCALE, x: 0, y: 0 })
 
   /**
    * Return the chart to its original size and location and clear any active pointer captures.
@@ -84,6 +73,7 @@ export function ZoomableChart({
   const resetView = useCallback(() => {
     setScale(DEFAULT_SCALE)
     setTranslation({ x: 0, y: 0 })
+    liveTransformRef.current = { scale: DEFAULT_SCALE, x: 0, y: 0 }
   }, [])
 
   // Any time the incoming markup changes we want to drop accumulated transforms.
@@ -93,309 +83,16 @@ export function ZoomableChart({
 
   // Keep synchronous references to the latest values so event handlers can read them.
   useEffect(() => {
-    translationRef.current = translation
     liveTransformRef.current.x = translation.x
     liveTransformRef.current.y = translation.y
   }, [translation])
 
   useEffect(() => {
-    scaleRef.current = scale
     liveTransformRef.current.scale = scale
   }, [scale])
 
-  // Apply transform directly to DOM element for smooth 60fps during gestures
-  const applyTransform = useCallback(() => {
-    const content = contentRef.current
-    if (!content) return
-    const { scale: s, x, y } = liveTransformRef.current
-    content.style.transform = `translate(${x}px, ${y}px) scale(${s})`
-  }, [])
-
-  // Handle wheel-based zooming and pinch/pan touch gestures on the chart container.
-  useEffect(() => {
-    const container = containerRef.current
-    const content = contentRef.current
-
-    if (!container || !content) {
-      return
-    }
-
-    // Gesture state
-    let lastTouchDistance: number | null = null
-    let singleTouchStart: { x: number; y: number; translationX: number; translationY: number } | null = null
-    let mouseStart: { x: number; y: number; translationX: number; translationY: number } | null = null
-    let isGestureActive = false
-
-    // Helper to calculate new scale/translation focusing on a point
-    const zoomToPoint = (scaleFactor: number, clientX: number, clientY: number) => {
-      const { scale: currentScale, x: currentX, y: currentY } = liveTransformRef.current
-
-      const newScale = clamp(currentScale * scaleFactor, minScale, maxScale)
-
-      // Calculate cursor position relative to the content (0-1)
-      // We need to account for the current transform
-      // content X = currentX + relativeX * currentScale
-      // relativeX = (clientX - rect.left) / currentScale <- NO, rect.left is already transformed
-
-      // Correct math with 0,0 origin:
-      // The point under cursor (relative to unscaled content) is:
-      // P = (Cursor - Translation) / Scale
-      // We want P to remain under Cursor after new Scale/Translation:
-      // Cursor = NewTranslation + P * NewScale
-      // NewTranslation = Cursor - P * NewScale
-      // NewTranslation = Cursor - ((Cursor - Translation) / Scale) * NewScale
-
-      // We need container-relative coordinates for calculations to be stable
-      const containerRect = container.getBoundingClientRect()
-      const cursorX = clientX - containerRect.left
-      const cursorY = clientY - containerRect.top
-
-      // Point in chart coordinates (unscaled)
-      const pointX = (cursorX - currentX) / currentScale
-      const pointY = (cursorY - currentY) / currentScale
-
-      const newX = cursorX - pointX * newScale
-      const newY = cursorY - pointY * newScale
-
-      // Update live transform
-      liveTransformRef.current = { scale: newScale, x: newX, y: newY }
-      applyTransform()
-
-      // Update touch-action immediately to avoid lag in gesture handling
-      if (container) {
-        container.style.touchAction = newScale > PAN_ENABLED_SCALE_THRESHOLD ? 'none' : 'manipulation'
-      }
-
-      // Sync state if this was a discrete action (wheel)
-      return { newScale, newX, newY }
-    }
-
-    const handleWheel = (event: WheelEvent) => {
-      event.preventDefault()
-      const scaleFactor = event.deltaY < 0 ? WHEEL_ZOOM_FACTOR : 1 / WHEEL_ZOOM_FACTOR
-      const { newScale, newX, newY } = zoomToPoint(scaleFactor, event.clientX, event.clientY)
-      setScale(newScale)
-      setTranslation({ x: newX, y: newY })
-    }
-
-    // Helper to check if event target is an interactive element (buttons, etc)
-    const isInteractiveElement = (target: EventTarget | null) => {
-      return target instanceof Element && target.closest('[data-zoom-interactive], button, a, [role="button"]')
-    }
-
-    const handleTouchStart = (event: TouchEvent) => {
-      // Don't intercept touches on UI controls
-      if (isInteractiveElement(event.target)) return
-
-      if (event.touches.length === 2) {
-        const touch0 = event.touches[0]
-        const touch1 = event.touches[1]
-        if (!touch0 || !touch1) return
-        lastTouchDistance = getDistance(touch0, touch1)
-        singleTouchStart = null
-        isGestureActive = true
-        event.preventDefault()
-        event.stopPropagation()
-      } else if (event.touches.length === 1) {
-        const currentScale = liveTransformRef.current.scale
-        if (currentScale > PAN_ENABLED_SCALE_THRESHOLD) {
-          const touch = event.touches[0]
-          if (!touch) return
-          singleTouchStart = {
-            x: touch.clientX,
-            y: touch.clientY,
-            translationX: liveTransformRef.current.x,
-            translationY: liveTransformRef.current.y,
-          }
-          isGestureActive = true
-          // Directly ensure touch-action is none to help browser tracking
-          if (container) container.style.touchAction = 'none'
-
-          // Only prevent default if we are actually capturing the drag for panning
-          // This allows scroll to work if we are NOT zoomed in (logic handled by checks above)
-          // However, here we ARE zoomed in, so we block scroll.
-          event.preventDefault()
-        }
-        // If not zoomed, allows scroll (don't call preventDefault)
-      }
-    }
-
-    const handleTouchMove = (event: TouchEvent) => {
-      if (event.touches.length === 2 && lastTouchDistance !== null) {
-        event.preventDefault()
-        event.stopPropagation()
-        singleTouchStart = null
-
-        const touch0 = event.touches[0]
-        const touch1 = event.touches[1]
-        if (!touch0 || !touch1) return
-
-        const currentDistance = getDistance(touch0, touch1)
-        if (currentDistance === 0) return
-
-        const distanceRatio = currentDistance / lastTouchDistance
-        lastTouchDistance = currentDistance
-
-        // Calculate midpoint for zoom origin
-        const midpointX = (touch0.clientX + touch1.clientX) / 2
-        const midpointY = (touch0.clientY + touch1.clientY) / 2
-
-        zoomToPoint(distanceRatio, midpointX, midpointY)
-        return
-      }
-
-      if (event.touches.length === 1 && singleTouchStart !== null) {
-        event.preventDefault() // Always prevent default while handling custom pan
-        const touch = event.touches[0]
-        if (!touch) return
-
-        const deltaX = touch.clientX - singleTouchStart.x
-        const deltaY = touch.clientY - singleTouchStart.y
-
-        const newX = singleTouchStart.translationX + deltaX
-        const newY = singleTouchStart.translationY + deltaY
-
-        // Calculate max allowed translation based on current scale
-        const containerRect = container.getBoundingClientRect()
-        const currentScale = liveTransformRef.current.scale
-        // Calculate limits based on top-left origin (0,0)
-        // Max translation is 0 (left/top aligned)
-        // Min translation is container_size * (1 - scale) (right/bottom aligned)
-        const minX = containerRect.width * (1 - currentScale)
-        const maxX = 0
-        const minY = containerRect.height * (1 - currentScale)
-        const maxY = 0
-
-        liveTransformRef.current.x = clamp(newX, minX, maxX)
-        liveTransformRef.current.y = clamp(newY, minY, maxY)
-        applyTransform()
-      }
-    }
-
-    const handleTouchEnd = (event: TouchEvent) => {
-      // Logic for transition from 2 fingers to 1 finger
-      if (event.touches.length === 1 && lastTouchDistance !== null) {
-        lastTouchDistance = null
-        const currentScale = liveTransformRef.current.scale
-        if (currentScale > PAN_ENABLED_SCALE_THRESHOLD) {
-          const touch = event.touches[0]
-          if (touch) {
-            singleTouchStart = {
-              x: touch.clientX,
-              y: touch.clientY,
-              translationX: liveTransformRef.current.x,
-              translationY: liveTransformRef.current.y,
-            }
-          }
-        }
-        return
-      }
-
-      if (event.touches.length === 0) {
-        lastTouchDistance = null
-        singleTouchStart = null
-        if (isGestureActive) {
-          isGestureActive = false
-          // Sync final state
-          const { scale: s, x, y } = liveTransformRef.current
-          setScale(s)
-
-          // Ensure container touch-action is sync with final state
-          // (React render will handle this eventually via isZoomedIn, but explicit set is safer)
-          if (container) {
-            container.style.touchAction = s > PAN_ENABLED_SCALE_THRESHOLD ? 'none' : 'manipulation'
-          }
-
-          setTranslation({ x, y })
-        }
-      }
-    }
-
-    // MOUSE EVENTS (Desktop Pan)
-    const handleMouseDown = (event: MouseEvent) => {
-      // Only left click and if zoomed in
-      if (event.button !== 0) return
-
-      // Allow interaction with UI controls
-      if (isInteractiveElement(event.target)) return
-
-      const currentScale = liveTransformRef.current.scale
-      if (currentScale <= PAN_ENABLED_SCALE_THRESHOLD) return
-
-      // Check if the click target is an interactive element (already handled by function above)
-      // keeping check just for safety logic flow if refactored later
-      if (isInteractiveElement(event.target)) return
-
-      mouseStart = {
-        x: event.clientX,
-        y: event.clientY,
-        translationX: liveTransformRef.current.x,
-        translationY: liveTransformRef.current.y,
-      }
-      isGestureActive = true
-      container.style.cursor = 'grabbing'
-      event.preventDefault()
-    }
-
-    const handleMouseMove = (event: MouseEvent) => {
-      if (!mouseStart) return
-      event.preventDefault()
-
-      const deltaX = event.clientX - mouseStart.x
-      const deltaY = event.clientY - mouseStart.y
-
-      const newX = mouseStart.translationX + deltaX
-      const newY = mouseStart.translationY + deltaY
-
-      // Calculate limits based on top-left origin (0,0)
-      const containerRect = container.getBoundingClientRect()
-      const currentScale = liveTransformRef.current.scale
-
-      const minX = containerRect.width * (1 - currentScale)
-      const maxX = 0
-      const minY = containerRect.height * (1 - currentScale)
-      const maxY = 0
-
-      liveTransformRef.current.x = clamp(newX, minX, maxX)
-      liveTransformRef.current.y = clamp(newY, minY, maxY)
-      applyTransform()
-    }
-
-    const handleMouseUp = () => {
-      if (mouseStart) {
-        mouseStart = null
-        isGestureActive = false
-        container.style.cursor = ''
-        // Sync state
-        const { scale: s, x, y } = liveTransformRef.current
-        setScale(s)
-        setTranslation({ x, y })
-      }
-    }
-
-    container.addEventListener('wheel', handleWheel, { passive: false })
-    container.addEventListener('touchstart', handleTouchStart, { passive: false })
-    container.addEventListener('touchmove', handleTouchMove, { passive: false })
-    container.addEventListener('touchend', handleTouchEnd)
-    container.addEventListener('touchcancel', handleTouchEnd)
-
-    // Mouse listeners
-    container.addEventListener('mousedown', handleMouseDown)
-    window.addEventListener('mousemove', handleMouseMove)
-    window.addEventListener('mouseup', handleMouseUp)
-
-    return () => {
-      container.removeEventListener('wheel', handleWheel)
-      container.removeEventListener('touchstart', handleTouchStart)
-      container.removeEventListener('touchmove', handleTouchMove)
-      container.removeEventListener('touchend', handleTouchEnd)
-      container.removeEventListener('touchcancel', handleTouchEnd)
-
-      container.removeEventListener('mousedown', handleMouseDown)
-      window.removeEventListener('mousemove', handleMouseMove)
-      window.removeEventListener('mouseup', handleMouseUp)
-    }
-  }, [minScale, maxScale, applyTransform])
+  // Use the composed gesture handling hooks
+  useChartGestures(containerRef, contentRef, liveTransformRef, { minScale, maxScale }, setScale, setTranslation)
 
   // Determine whether the chart is perfectly reset so we can hide/show the reset button.
   const isDefaultView = useMemo(() => {

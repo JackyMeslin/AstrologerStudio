@@ -1,6 +1,13 @@
 'use client'
 
-import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts'
+import dynamic from 'next/dynamic'
+import { ChartLoadingSkeleton } from '@/components/ui/chart-loading-skeleton'
+
+// Dynamically import chart component to avoid loading recharts in the initial bundle
+const AdminPieChartContent = dynamic(
+  () => import('@/components/admin/AdminChartContent').then((mod) => mod.AdminPieChartContent),
+  { ssr: false, loading: () => <ChartLoadingSkeleton height={256} variant="admin" /> },
+)
 
 interface ChartTypeBreakdownProps {
   data: { type: string; count: number }[]
@@ -45,31 +52,11 @@ export function ChartTypeBreakdown({ data }: ChartTypeBreakdownProps) {
         <p className="text-slate-500 text-center py-8">No saved charts yet</p>
       ) : (
         <div className="h-64">
-          <ResponsiveContainer width="100%" height="100%">
-            <PieChart>
-              <Pie
-                data={formattedData}
-                dataKey="value"
-                nameKey="name"
-                cx="50%"
-                cy="50%"
-                outerRadius={80}
-                label={({ name, value }) => `${name}: ${value}`}
-              >
-                {formattedData.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={entry.color} />
-                ))}
-              </Pie>
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: '#1e293b',
-                  border: '1px solid #475569',
-                  borderRadius: '8px',
-                }}
-              />
-              <Legend />
-            </PieChart>
-          </ResponsiveContainer>
+          <AdminPieChartContent
+            data={formattedData}
+            outerRadius={80}
+            labelFormatter={({ name, value }: { name: string; value: number }) => `${name}: ${value}`}
+          />
         </div>
       )}
 
