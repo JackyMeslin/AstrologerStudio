@@ -55,6 +55,13 @@ export class AstrologerApiClient {
    * @throws Error with detailed message on failure
    */
   private async request<T>(endpoint: string, method: 'GET' | 'POST', body?: unknown): Promise<T> {
+    if (!BASE_URL?.trim()) {
+      const msg =
+        'ASTROLOGER_API_URL is not set. Set it in .env (e.g. http://localhost:8000/api/v5 for self-host or https://astrologer.p.rapidapi.com/api/v5 for RapidAPI).'
+      logger.error(`[AstrologerAPI] ${msg}`)
+      throw new Error(msg)
+    }
+
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
     }
@@ -106,7 +113,20 @@ export class AstrologerApiClient {
           logger.error(`[AstrologerAPI] ${timeoutError}`)
           throw new Error(timeoutError)
         }
-        // Log connection errors and other fetch failures
+        // Connection refused / fetch failed → hint to start the API
+        const cause = (error as Error & { cause?: unknown }).cause
+        const causeCode = cause && typeof cause === 'object' && 'code' in cause ? (cause as { code: string }).code : undefined
+        const isConnectionRefused =
+          error.message === 'fetch failed' || causeCode === 'ECONNREFUSED'
+        if (isConnectionRefused) {
+          const hint =
+            BASE_URL.includes('localhost') || BASE_URL.includes('127.0.0.1')
+              ? `Cannot connect to Astrologer API at ${BASE_URL}. Make sure the API is running (e.g. in Astrologer-API folder: .\\.venv\\Scripts\\Activate.ps1 then $env:ENV_TYPE="dev"; python -m uvicorn app.main:app --reload --port 8000).`
+              : `Cannot connect to Astrologer API at ${BASE_URL}. Check your network or API key.`
+          logger.error(`[AstrologerAPI] ${hint}`)
+          throw new Error(hint)
+        }
+        // Log other fetch failures
         if (!error.message.startsWith('API Error')) {
           logger.error(`[AstrologerAPI] Request failed: ${error.message}`, { endpoint, method })
         }

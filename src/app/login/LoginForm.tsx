@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form'
 import { ReCaptcha, isRecaptchaDisabled } from '@/components/ui/ReCaptcha'
-import { useRef, useCallback } from 'react'
+import { useRef, useCallback, useEffect } from 'react'
 import ReCAPTCHA from 'react-google-recaptcha'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
@@ -25,10 +25,15 @@ const oauthErrorMessages: Record<string, string> = {
 }
 
 export default function LoginForm() {
-  const { login, loginError, isLoginPending } = useAuth()
+  const { login, loginError, isLoginPending, resetLoginError } = useAuth()
   const recaptchaRef = useRef<ReCAPTCHA>(null)
   const searchParams = useSearchParams()
   const oauthError = searchParams.get('error')
+
+  // Clear any stale login error when landing on the login page (e.g. after logout)
+  useEffect(() => {
+    resetLoginError()
+  }, [resetLoginError])
 
   const form = useForm<LoginInput>({
     resolver: zodResolver(loginSchema),
@@ -158,14 +163,18 @@ export default function LoginForm() {
               )}
             />
 
-            {/* reCAPTCHA - only show if there's no error to avoid clutter, or always show? */}
-            <div className="py-2 flex justify-center">
-              <ReCaptcha ref={recaptchaRef} onChange={handleRecaptchaChange} onExpired={handleRecaptchaExpired} />
-            </div>
-            {form.formState.errors.recaptchaToken && (
-              <p className="mt-2 text-center text-sm text-destructive">
-                {form.formState.errors.recaptchaToken.message}
-              </p>
+            {/* reCAPTCHA - hidden when NEXT_PUBLIC_DISABLE_RECAPTCHA=true (e.g. self-hosted) */}
+            {!isRecaptchaDisabled && (
+              <>
+                <div className="py-2 flex justify-center">
+                  <ReCaptcha ref={recaptchaRef} onChange={handleRecaptchaChange} onExpired={handleRecaptchaExpired} />
+                </div>
+                {form.formState.errors.recaptchaToken && (
+                  <p className="mt-2 text-center text-sm text-destructive">
+                    {form.formState.errors.recaptchaToken.message}
+                  </p>
+                )}
+              </>
             )}
 
             {loginError && (

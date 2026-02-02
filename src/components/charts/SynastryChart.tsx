@@ -70,21 +70,19 @@ export function SynastryChart({
   const notes = propNotes !== undefined ? propNotes : localNotes
   const handleNotesChange = onNotesChange || setLocalNotes
 
+  // For dual charts (solar/lunar return), subject2Data may be the combined chart with first_subject/second_subject instead of subject
+  const subject1 = subject1Data.chart_data?.subject ?? subject1Data.chart_data?.first_subject
+  const subject2 = subject2Data.chart_data?.subject ?? subject2Data.chart_data?.second_subject
+
   // Generate unique chartId for IndexedDB caching
   const chartId = useMemo(() => {
     const chartType = chartTypeOverride || 'synastry'
-    const subjectName1 = subject1Data.chart_data.subject.name
-    const subjectName2 = subject2Data.chart_data.subject.name
-    const subjectDate1 = subject1Data.chart_data.subject.iso_formatted_utc_datetime || ''
-    const subjectDate2 = subject2Data.chart_data.subject.iso_formatted_utc_datetime || ''
+    const subjectName1 = subject1?.name ?? 'Subject 1'
+    const subjectName2 = subject2?.name ?? 'Subject 2'
+    const subjectDate1 = subject1?.iso_formatted_utc_datetime ?? ''
+    const subjectDate2 = subject2?.iso_formatted_utc_datetime ?? ''
     return generateChartId(chartType, subjectName1, subjectDate1, subjectName2, subjectDate2)
-  }, [
-    chartTypeOverride,
-    subject1Data.chart_data.subject.name,
-    subject1Data.chart_data.subject.iso_formatted_utc_datetime,
-    subject2Data.chart_data.subject.name,
-    subject2Data.chart_data.subject.iso_formatted_utc_datetime,
-  ])
+  }, [chartTypeOverride, subject1?.name, subject1?.iso_formatted_utc_datetime, subject2?.name, subject2?.iso_formatted_utc_datetime])
 
   // Fallback to 'chart' if 'chart_wheel' is missing
   const mainChart = chart_wheel || data.chart
@@ -103,19 +101,25 @@ export function SynastryChart({
           />
         )
       case 'subject1-planets-card':
-        return (
+        return subject1 ? (
           <NatalPlanetPositionsCard
             id={id}
-            subject={subject1Data.chart_data.subject}
+            subject={subject1}
             className="h-fit w-full"
-            title={`${subject1Data.chart_data.subject.name} Points`}
+            title={`${subject1.name} Points`}
           />
-        )
+        ) : null
       case 'subject2-details-card':
         return (
           <SubjectDetailsCard
             id={id}
-            subject={subject2Data.chart_data}
+            subject={
+              subject2Data.chart_data?.subject
+                ? subject2Data.chart_data
+                : subject2 && subject2Data.chart_data
+                  ? { ...subject2Data.chart_data, subject: subject2 }
+                  : subject2Data.chart_data
+            }
             className="h-fit w-full"
             dateLabel={subject2DateLabel}
             title={
@@ -128,10 +132,10 @@ export function SynastryChart({
           />
         )
       case 'subject2-planets-card':
-        return (
+        return subject2 ? (
           <NatalPlanetPositionsCard
             id={id}
-            subject={subject2Data.chart_data.subject}
+            subject={subject2}
             className="h-fit w-full"
             projectedPoints={chart_data.house_comparison?.second_points_in_first_houses}
             title={
@@ -139,10 +143,10 @@ export function SynastryChart({
                 ? 'Solar Return Points'
                 : chartTypeOverride === 'lunar_return'
                   ? 'Lunar Return Points'
-                  : `${subject2Data.chart_data.subject.name} Points`
+                  : `${subject2.name} Points`
             }
           />
-        )
+        ) : null
       case 'natal-houses-card':
         return <NatalHousesPositionsCard id={id} subject={chart_data.subject} className="h-fit w-full" />
       case 'aspects-card':
@@ -153,8 +157,8 @@ export function SynastryChart({
             id={id}
             html={chart_grid}
             className="w-full"
-            rowLabel={isReturnChart ? 'Natal' : subject1Data.chart_data.subject.name}
-            colLabel={isReturnChart ? 'Return' : subject2Data.chart_data.subject.name}
+            rowLabel={isReturnChart ? 'Natal' : subject1?.name ?? 'Subject 1'}
+            colLabel={isReturnChart ? 'Return' : subject2?.name ?? 'Subject 2'}
           />
         ) : null
       default:
@@ -172,8 +176,8 @@ export function SynastryChart({
       {
         chartData: {
           ...data.chart_data,
-          first_subject: data.chart_data.first_subject || subject1Data.chart_data.subject,
-          second_subject: data.chart_data.second_subject || subject2Data.chart_data.subject,
+          first_subject: data.chart_data.first_subject || subject1,
+          second_subject: data.chart_data.second_subject || subject2,
         },
         chartType,
         relationshipType,
@@ -197,8 +201,8 @@ export function SynastryChart({
     <AspectTable
       aspects={chart_data.aspects}
       className="mx-auto w-full max-w-8xl"
-      p1Label={isReturnChart ? 'Natal' : subject1Data.chart_data.subject.name}
-      p2Label={isReturnChart ? 'Return' : subject2Data.chart_data.subject.name}
+      p1Label={isReturnChart ? 'Natal' : subject1?.name ?? 'Subject 1'}
+      p2Label={isReturnChart ? 'Return' : subject2?.name ?? 'Subject 2'}
       hideMovement={!isReturnChart}
     />
   )
@@ -208,8 +212,8 @@ export function SynastryChart({
       <ChartDataView
         data={data}
         secondaryData={subject2Data}
-        primaryLabel={isReturnChart ? 'Natal' : subject1Data.chart_data.subject.name}
-        secondaryLabel={isReturnChart ? 'Return' : subject2Data.chart_data.subject.name}
+        primaryLabel={isReturnChart ? 'Natal' : subject1?.name ?? 'Subject 1'}
+        secondaryLabel={isReturnChart ? 'Return' : subject2?.name ?? 'Subject 2'}
         chartType={chartTypeOverride || 'synastry'}
       />
     </div>
@@ -235,10 +239,10 @@ export function SynastryChart({
       type="double"
       className="mx-auto w-full max-w-8xl"
       activePoints={chart_data.active_points}
-      rowLabel={isReturnChart ? 'Natal' : subject1Data.chart_data.subject.name}
-      colLabel={isReturnChart ? 'Return' : subject2Data.chart_data.subject.name}
-      rowSubject={subject1Data.chart_data.subject}
-      colSubject={subject2Data.chart_data.subject}
+      rowLabel={isReturnChart ? 'Natal' : subject1?.name ?? 'Subject 1'}
+      colLabel={isReturnChart ? 'Return' : subject2?.name ?? 'Subject 2'}
+      rowSubject={subject1}
+      colSubject={subject2}
     />
   )
 
@@ -253,8 +257,8 @@ export function SynastryChart({
         aspects={chart_data.aspects}
         activePoints={chart_data.active_points}
         aspectFilterType="double"
-        primaryFilterLabel={isReturnChart ? 'Natal Planets' : `${subject1Data.chart_data.subject.name} Planets`}
-        secondaryFilterLabel={isReturnChart ? 'Return Planets' : `${subject2Data.chart_data.subject.name} Planets`}
+        primaryFilterLabel={isReturnChart ? 'Natal Planets' : `${subject1?.name ?? 'Subject 1'} Planets`}
+        secondaryFilterLabel={isReturnChart ? 'Return Planets' : `${subject2?.name ?? 'Subject 2'} Planets`}
       />
     </div>
   )

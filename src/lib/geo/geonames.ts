@@ -150,11 +150,12 @@ export async function fetchCitySuggestions(
 
   const response = await fetch(`${GEONAMES_BASE_URL}/searchJSON?${params.toString()}`, { signal })
 
+  const data = await response.json().catch(() => ({}))
   if (!response.ok) {
-    throw new Error(`GeoNames city lookup failed: ${response.status}`)
+    const msg = data?.status?.message ?? data?.message ?? `HTTP ${response.status}`
+    logger.error('[GeoNames] City lookup failed:', { status: response.status, message: msg })
+    throw new Error(`GeoNames city lookup failed: ${response.status}. ${msg}`)
   }
-
-  const data = await response.json()
   const list = Array.isArray(data?.geonames) ? data.geonames : []
 
   return list

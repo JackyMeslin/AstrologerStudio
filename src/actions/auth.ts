@@ -8,7 +8,6 @@
 import { prisma } from '@/lib/db/prisma'
 import bcrypt from 'bcryptjs'
 import { createSession, deleteSession, getSession } from '@/lib/security/session'
-import { redirect } from 'next/navigation'
 import { z } from 'zod'
 import { verifyRecaptcha } from '@/lib/security/recaptcha'
 import { logger } from '@/lib/logging/server'
@@ -165,7 +164,7 @@ export async function login(_prevState: unknown, formData: FormData): Promise<Ac
  *
  * @remarks
  * - Deletes the session cookie
- * - Redirects to login page
+ * - Does not redirect; the client (useAuth) redirects to /login on success to avoid NEXT_REDIRECT console noise
  *
  * @example
  * ```tsx
@@ -176,7 +175,7 @@ export async function login(_prevState: unknown, formData: FormData): Promise<Ac
  */
 export async function logout(): Promise<void> {
   await deleteSession()
-  redirect('/login')
+  // Redirect is done client-side in useAuth.onSuccess to avoid NEXT_REDIRECT being logged as a console error
 }
 
 /**

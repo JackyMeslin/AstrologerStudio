@@ -70,5 +70,6 @@ export function useAuth() {
     logout: logoutMutation.mutate,
     loginError: loginMutation.error,
     isLoginPending: loginMutation.isPending,
+    resetLoginError: loginMutation.reset,
   }
 }

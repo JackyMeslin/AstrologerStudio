@@ -1,0 +1,21 @@
+PostgreSQL  - verif si activé dans WINDOWS+R  services.msc
+
+Acces base de données : pgAdmin 4
+
+Launch astrologer API
+ C:\Users\jacky\Documents\GitHub\Astrologer-API
+.\.venv\Scripts\Activate.ps1
+$env:ENV_TYPE="dev"; python -m uvicorn atrologer-API>   pp.main:app --reload --port 8000
+
+
+Launch AstrologerStudio
+C:\Users\jacky\Documents\GitHub\AstrologerStudio>
+bun run dev   
+ http://localhost:3000  
+
+Accès base données app prisma
+bun run db:studio 
+
+http://localhost:3000
+Login : Jacky
+Mot de passe : Spinoza2018 

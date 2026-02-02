@@ -233,9 +233,11 @@ async function fetchAIContext(
   includeHouseComparison: boolean,
 ): Promise<string> {
   const { subject, first_subject, second_subject, active_points, active_aspects } = chartData
+  // Normalize chart type: frontend may send "solar-return" / "lunar-return", API expects "solar_return" / "lunar_return"
+  const normalizedChartType = chartType.replace(/-/g, '_')
 
   try {
-    switch (chartType) {
+    switch (normalizedChartType) {
       case 'natal': {
         const normalizedSubject = normalizeSubject(subject as RawSubjectData)
         if (!normalizedSubject) {
@@ -296,6 +298,7 @@ async function fetchAIContext(
         return response.context
       }
 
+      case 'solar-return':
       case 'solar_return': {
         // For dual wheel return charts, subject may be undefined - use first_subject instead
         const rawReturnSubject = (subject || first_subject) as RawSubjectData
@@ -313,6 +316,7 @@ async function fetchAIContext(
         return response.context
       }
 
+      case 'lunar-return':
       case 'lunar_return': {
         // For dual wheel return charts, subject may be undefined - use first_subject instead
         const rawReturnSubject = (subject || first_subject) as RawSubjectData
@@ -410,13 +414,15 @@ export async function POST(request: NextRequest) {
 
     const {
       chartData,
-      chartType,
+      chartType: rawChartType,
       systemPrompt,
       chartTypePrompt,
       language,
       include_house_comparison,
       relationshipType,
     } = validation.data
+    // Normalize chart type: frontend may send "solar-return" / "lunar-return"
+    const chartType = typeof rawChartType === 'string' ? rawChartType.replace(/-/g, '_') : rawChartType
 
     if (!process.env.OPENROUTER_API_KEY) {
       logger.error('OpenRouter API key not configured')

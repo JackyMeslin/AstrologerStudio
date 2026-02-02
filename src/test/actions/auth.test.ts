@@ -375,23 +375,14 @@ describe('Auth Actions', () => {
   // ==========================================================================
 
   describe('logout', () => {
-    it('should call deleteSession then redirect to /login', async () => {
+    it('should call deleteSession (redirect to /login is done client-side in useAuth)', async () => {
       const { logout } = await import('@/actions/auth')
-      const callOrder: string[] = []
-
-      mockDeleteSession.mockImplementation(() => {
-        callOrder.push('deleteSession')
-        return Promise.resolve()
-      })
-      mockRedirect.mockImplementation((path: string) => {
-        callOrder.push(`redirect:${path}`)
-      })
+      mockDeleteSession.mockResolvedValue(undefined)
 
       await logout()
 
-      expect(callOrder).toEqual(['deleteSession', 'redirect:/login'])
       expect(mockDeleteSession).toHaveBeenCalledTimes(1)
-      expect(mockRedirect).toHaveBeenCalledWith('/login')
+      expect(mockRedirect).not.toHaveBeenCalled()
     })
   })
 
