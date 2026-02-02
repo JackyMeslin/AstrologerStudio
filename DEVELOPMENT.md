@@ -35,11 +35,28 @@ The easiest way — use the hosted API:
 
 #### Option B: Self-Host the API
 
-Run your own instance of the API:
+Run your own instance of the API ([Astrologer-API](https://github.com/g-battaglia/Astrologer-API)):
 
-1. Clone the repository: [github.com/g-battaglia/Astrologer-API](https://github.com/g-battaglia/Astrologer-API)
-2. Follow the setup instructions in the repository
-3. Set `ASTROLOGER_API_URL` in `.env` to your API URL (e.g., `http://localhost:8000/api/v5`)
+1. **Clone and install** (Python ≥ 3.11 required):
+   ```bash
+   git clone https://github.com/g-battaglia/Astrologer-API.git
+   cd Astrologer-API
+   git checkout v5
+   # With uv (recommended): uv sync
+   # Or: pip install -e .
+   ```
+
+2. **Configure** (optional): copy `.env.example` to `.env`. For local dev, set `ENV_TYPE=dev` so the API runs without authentication.
+
+3. **Run the API** (default port 8000):
+   ```bash
+   # With uv: uv run poe dev
+   # Or: env ENV_TYPE=dev uvicorn app.main:app --reload --port 8000
+   ```
+
+4. **In Astrologer Studio `.env`**:
+   - `ASTROLOGER_API_URL="http://localhost:8000/api/v5"`
+   - `ASTROLOGER_API_KEY=""` (leave empty when the API runs in dev mode; in production, use the same value as `ASTROLOGER_STUDIO_SECRET_KEY` in the API’s `.env`, and set `ASTROLOGER_API_KEY_HEADER="X-AstrologerStudio-Proxy-Secret"` if needed)
 
 ### 1. Clone and Install
 
@@ -62,7 +79,8 @@ Key variables:
 
 - `DATABASE_URL` – PostgreSQL connection string.
 - `SESSION_SECRET` – strong random string for session encryption.
-- `ASTROLOGER_API_KEY` – Astrologer API key.
+- `ASTROLOGER_API_URL` – Base URL of the Astrologer API (e.g. `https://astrologer.p.rapidapi.com/api/v5` or `http://localhost:8000/api/v5` for self-host).
+- `ASTROLOGER_API_KEY` – RapidAPI key, or (when self-host in production) proxy secret key.
 - `GEONAMES_USERNAME` – GeoNames username for location lookup.
 - `OPENROUTER_API_KEY` – OpenRouter API key for AI interpretations (optional).
 - `NEXT_PUBLIC_ENABLE_AI_INTERPRETATION` – master switch for AI readings.
