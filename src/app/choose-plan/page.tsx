@@ -28,10 +28,16 @@ export const metadata: Metadata = {
   description: 'Select a plan to get started with Astrologer Studio',
 }
 
-export default async function ChoosePlanPage({ searchParams }: { searchParams: Promise<{ completed?: string }> }) {
+export default async function ChoosePlanPage({
+  searchParams,
+}: { searchParams: Promise<{ completed?: string; returnTo?: string }> }) {
   const session = await getSession()
   const params = await searchParams
   const checkoutCompleted = params.completed === 'true'
+  const rawReturnTo = typeof params.returnTo === 'string' ? params.returnTo : ''
+  const isValidReturnTo =
+    rawReturnTo.startsWith('/') && !rawReturnTo.startsWith('//') && !/[\r\n]/.test(rawReturnTo)
+  const returnTo = isValidReturnTo ? rawReturnTo : '/dashboard'
 
   // If not logged in, redirect to login
   if (!session?.userId) {
@@ -91,9 +97,9 @@ export default async function ChoosePlanPage({ searchParams }: { searchParams: P
     },
   })
 
-  // If onboarding is complete, redirect to dashboard
+  // If onboarding is complete, redirect to returnTo (e.g. /subjects) or dashboard
   if (user?.onboardingCompleted) {
-    redirect('/dashboard')
+    redirect(returnTo)
   }
 
   // If user doesn't have onboarding completed but already has a subscription,
@@ -104,7 +110,7 @@ export default async function ChoosePlanPage({ searchParams }: { searchParams: P
       where: { id: session.userId },
       data: { onboardingCompleted: true },
     })
-    redirect('/dashboard')
+    redirect(returnTo)
   }
 
   const trialDays = getTrialDurationDays()

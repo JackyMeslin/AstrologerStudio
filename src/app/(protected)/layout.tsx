@@ -3,10 +3,14 @@ import { ReactNode } from 'react'
 import { getSession } from '@/lib/security/session'
 import { prisma } from '@/lib/db/prisma'
 import { redirect } from 'next/navigation'
+import { headers } from 'next/headers'
 import { LEGAL_VERSIONS } from '@/lib/config/legal'
 import { TermsAcceptanceModal } from '@/components/TermsAcceptanceModal'
 import { TrialNotifications } from '@/components/trial'
 import { calculateTrialDaysLeft, getTrialDurationDays } from '@/lib/config/trial'
+
+// Ensure layout always runs with fresh auth/user data (no cache)
+export const dynamic = 'force-dynamic'
 
 export default async function ProtectedLayout({ children }: { children: ReactNode }) {
   const session = await getSession()
@@ -31,9 +35,21 @@ export default async function ProtectedLayout({ children }: { children: ReactNod
     },
   })
 
-  // If onboarding not completed, redirect to choose-plan
+  // If onboarding not completed, redirect to choose-plan (returnTo from proxy when available)
   if (!user?.onboardingCompleted) {
-    redirect('/choose-plan')
+    let pathname = ''
+    try {
+      const headersList = await headers()
+      pathname = headersList.get('x-pathname') ?? ''
+    } catch {
+      // headers() can throw in some RSC/prefetch contexts; skip returnTo to avoid crash
+    }
+    const safeReturn =
+      pathname && pathname.startsWith('/') && !pathname.startsWith('//') && !/[\r\n]/.test(pathname)
+        ? pathname
+        : ''
+    const choosePlanUrl = safeReturn ? `/choose-plan?returnTo=${encodeURIComponent(safeReturn)}` : '/choose-plan'
+    redirect(choosePlanUrl)
   }
 
   // Check if user needs to accept current versions of legal documents

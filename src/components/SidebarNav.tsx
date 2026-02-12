@@ -179,6 +179,7 @@ export function SidebarNav({ groups = defaultGroups }: SidebarNavProps) {
                             href={item.to}
                             className={cn('flex items-center gap-2')}
                             aria-current={isActive(item.to) ? 'page' : undefined}
+                            prefetch={item.to === '/subjects' ? false : undefined}
                           >
                             <item.icon className="size-4" />
                             <span>{item.label}</span>

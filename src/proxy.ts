@@ -160,6 +160,15 @@ function isProtectedApiRoute(path: string): boolean {
 }
 
 /**
+ * Build request headers with x-pathname so protected layout can pass returnTo to choose-plan.
+ */
+function nextRequestWithPathname(req: NextRequest) {
+  const requestHeaders = new Headers(req.headers)
+  requestHeaders.set('x-pathname', req.nextUrl.pathname)
+  return { request: { headers: requestHeaders } }
+}
+
+/**
  * Proxy handler for authentication and route protection.
  *
  * @remarks
@@ -168,6 +177,7 @@ function isProtectedApiRoute(path: string): boolean {
  * - Legal routes are accessible to everyone
  * - Session is validated using JWT decryption
  * - Security headers are added to all responses
+ * - x-pathname header is set so protected layout can redirect back to intended page via choose-plan
  */
 const proxy: NextProxy = async (req: NextRequest) => {
   const path = req.nextUrl.pathname
@@ -191,13 +201,12 @@ const proxy: NextProxy = async (req: NextRequest) => {
       return NextResponse.redirect(new URL('/', req.nextUrl))
     }
     // Allow through - admin routes handle their own auth
-    return NextResponse.next()
+    return NextResponse.next(nextRequestWithPathname(req))
   }
 
   // Public access routes are accessible to everyone - no redirect
   if (isPublicAccessRoute) {
-    const response = NextResponse.next()
-    return response
+    return NextResponse.next(nextRequestWithPathname(req))
   }
 
   // Redirect to login if accessing protected page route without session
@@ -212,7 +221,7 @@ const proxy: NextProxy = async (req: NextRequest) => {
     return NextResponse.redirect(new URL('/dashboard', req.nextUrl))
   }
 
-  const response = NextResponse.next()
+  const response = NextResponse.next(nextRequestWithPathname(req))
 
   // Security headers (centralized in next.config.mjs, these are fallbacks)
   response.headers.set('X-Content-Type-Options', 'nosniff')

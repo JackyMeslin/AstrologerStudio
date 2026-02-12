@@ -1,5 +1,15 @@
+import path from 'path'
+import { fileURLToPath } from 'url'
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Turbopack: explicit root (absolute path) to avoid "Next.js package not found" on Windows
+  turbopack: {
+    root: path.resolve(__dirname),
+  },
+
   // Security headers
   async headers() {
     // Environment-based CSP configuration
